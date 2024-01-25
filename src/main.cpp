@@ -1,21 +1,30 @@
 #include <Arduino.h>
+#include <string.h>//need the .h for arduino
+#include "core/state.hpp"
+#include "core/fsw.hpp"
+#include <SPI.h>
+#include <SD.h>
 
-
-////////Which libraries do we need to include?
-// #include <cstdio>
-
-// #include "pico/stdlib.h"
-// #include "hardware/i2c.h"
-
-// #include "fsw.hpp"
-
-// #define I2C_PORT i2c0
-// #define I2C_SDA 4
-// #define I2C_SCL 5
+Flight flight;
 
 void setup(){
+    //don't need serial lines for actual rocket, just for debugging in console
     Serial.begin(9600);
+    while(!Serial){
+        ; // wait for serial to connect
+    }
+
+
+
+//trying to see if connected
+//if it doesn't get the response, will fail
+//all sensors need this begin
+    if (!state::altimeter::bmp.begin_I2C()) {   
+    Serial.println("Could not find a valid BMP3 sensor, check wiring!");//error message
+    while (1);
+  }
+
 }
 void loop() {
-    Serial.println("hello"); //will execute forever
+    flight.execute();
 }

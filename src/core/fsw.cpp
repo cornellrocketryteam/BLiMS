@@ -1,21 +1,17 @@
 
 //////Which libraries do we need?
 //Are these headers referenced later?
-#ifndef FSW_HPP_
-#define FSW_HPP_
-
-// #include "flight_mode.hpp"
-// #include "state.hpp"
-// #include "pico/stdlib.h"
 
 
-/**
- * Container for flight-level related functionality.
- * 
-*/
-class Flight {
-public:
-    void execute();
-};
+//says what flight execute does
 
-#endif // FSW_HPP_
+#include "fsw.hpp"
+
+
+void Flight::execute() {
+    // sleep_ms(5000);
+    state::flight::mode->execute();
+    state::flight::mode->transition();
+}
+
+//gets state from state.hpp
