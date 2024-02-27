@@ -1,0 +1,13 @@
+CS
+- Detect apogee - ask Matt/flight software for strategies/equations
+- Directional failsafe if can't get data from altimeter/compass - hardcode for visibility?
+
+
+Physical Tests
+- Rod test w/ Akshitha
+- What's the difference in length betwen the brakelines and static lines
+
+
+
+
+- Want everything done by March 2/Servo control test

@@ -1,4 +1,6 @@
 #include <SD.h>
+#include <Adafruit_Sensor.h> //common code used for adafruit
+#include "Adafruit_BMP3XX.h" //library for altimeter
 
 File myFile;
 
@@ -23,7 +25,7 @@ void setup()
   // so you have to close this one before opening another.
   myFile = SD.open("test.txt", FILE_WRITE);
 
-  // if the file opened okay, write to it:
+    // if the file opened okay, write to it:
   if (myFile)
   {
     Serial.print("Writing to test.txt...");
