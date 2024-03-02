@@ -22,6 +22,60 @@ File myFile;
 // magnetometer object
 Adafruit_MMC5603 mag = Adafruit_MMC5603(12345);
 
+void setup()
+{
+  Serial.begin(115200);
+  while (!Serial)
+    ;
+  Serial.println("Initializing Tests");
+
+  // check SD card
+  sdSetUpCheck();
+  // check altimeter
+
+  altimeterSetUpCheck();
+  // check compass
+  // compassSetUpCheck();
+
+  ////Altimeter stuff
+  // Set up oversampling and filter initialization
+  bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
+  bmp.setPressureOversampling(BMP3_OVERSAMPLING_4X);
+  bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
+  bmp.setOutputDataRate(BMP3_ODR_50_HZ);
+}
+
+void loop()
+{
+  // if the altimeter is performing
+  if (!bmp.performReading())
+  {
+    Serial.println("Altimeter: fail");
+    // return;
+  }
+
+  myFile = SD.open("test.txt", FILE_WRITE);
+  // Print to file
+  myFile.print("{");
+
+  altimeterFilePrint();
+  // compassFilePrint();
+  // compass issue: something about compassFile/Serial prevents other code in loop from running
+
+  myFile.print("}");
+  myFile.println();
+  myFile.close();
+
+  // Serial testing
+  Serial.print("{");
+  altimeterSerialPrint();
+  // compassSerialPrint();
+  Serial.print("}");
+  Serial.println();
+
+  delay(1000);
+}
+
 // check SD connection and file write
 bool sdSetUpCheck()
 {
@@ -145,58 +199,4 @@ void compassSerialPrint()
   }
   Serial.print("heading:");
   Serial.print(heading);
-}
-
-void setup()
-{
-  Serial.begin(115200);
-  while (!Serial)
-    ;
-  Serial.println("Initializing Tests");
-
-  // check SD card
-  sdSetUpCheck();
-  // check altimeter
-
-  altimeterSetUpCheck();
-  // check compass
-  // compassSetUpCheck();
-
-  ////Altimeter stuff
-  // Set up oversampling and filter initialization
-  bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
-  bmp.setPressureOversampling(BMP3_OVERSAMPLING_4X);
-  bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
-  bmp.setOutputDataRate(BMP3_ODR_50_HZ);
-}
-
-void loop()
-{
-  // if the altimeter is performing
-  if (!bmp.performReading())
-  {
-    Serial.println("Altimeter: fail");
-    // return;
-  }
-
-  myFile = SD.open("test.txt", FILE_WRITE);
-  // Print to file
-  myFile.print("{");
-
-  altimeterFilePrint();
-  // compassFilePrint();
-  // compass issue: something about compassFile/Serial prevents other code in loop from running
-
-  myFile.print("}");
-  myFile.println();
-  myFile.close();
-
-  // Serial testing
-  Serial.print("{");
-  altimeterSerialPrint();
-  // compassSerialPrint();
-  Serial.print("}");
-  Serial.println();
-
-  delay(1000);
 }
