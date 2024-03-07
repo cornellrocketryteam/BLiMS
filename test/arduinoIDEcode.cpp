@@ -6,7 +6,9 @@
 #include <SD.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP3XX.h>
-#include <Adafruit_MMC56x3.h>
+// #include <Adafruit_LSM9DS1.h>
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>
 
 #define BMP_SCK 13
 #define BMP_MISO 12
@@ -15,12 +17,15 @@
 
 #define SEALEVELPRESSURE_HPA (1013.25)
 
+#define BNO055_SAMPLERATE_DELAY_MS (100)
+
 // altimeter object
 Adafruit_BMP3XX bmp;
 // file object
 File myFile;
-// magnetometer object
-Adafruit_MMC5603 mag = Adafruit_MMC5603(12345);
+// i2c
+// Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1();
+Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x28, &Wire);
 
 // check SD connection and file write
 bool sdSetUpCheck()
@@ -65,15 +70,16 @@ bool altimeterSetUpCheck()
   Serial.println("Altimeter Setup: Success");
   return true;
 }
-bool compassSetUpCheck()
+bool IMUSetUpCheck()
 {
-  if (!mag.begin(MMC56X3_DEFAULT_ADDRESS, &Wire))
-  { // I2C mode
-    /* There was a problem detecting the MMC5603 ... check your connections */
-    Serial.println("Compass Setup: Fail");
+  // Try to initialise and warn if we couldn't detect the chip
+  if (!bno.begin())
+  {
+    Serial.println("IMU Setup: Fail");
     return false;
   }
-  Serial.println("Compass Setup: Success");
+  Serial.println("IMU Setup: Success");
+
   return true;
 }
 // print altimeter data to file
@@ -107,44 +113,36 @@ void altimeterSerialPrint()
   Serial.print(bmp.readAltitude(SEALEVELPRESSURE_HPA));
   Serial.print(";");
 }
-void compassFilePrint()
+void IMUFilePrint()
 {
-  sensors_event_t event;
-  mag.getEvent(&event);
+  imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
 
-  float Pi = 3.14159;
-
-  // Calculate the angle of the vector y,x
-  float heading = (atan2(event.magnetic.y, event.magnetic.x) * 180) / Pi;
-
-  // Normalize to 0-360
-  if (heading < 0)
-  {
-    heading = 360 + heading;
-  }
-
-  myFile.print("heading:");
-  myFile.println(heading);
-  Serial.println(heading);
+  /* Display the floating point data */
+  myFile.print("IMU(deg):");
+  myFile.print("X:");
+  myFile.print(euler.x());
+  myFile.print(";");
+  myFile.print("Y:");
+  myFile.print(euler.y());
+  myFile.print(";");
+  myFile.print("Z:");
+  myFile.print(euler.z());
+  myFile.print(";");
 }
-void compassSerialPrint()
+void IMUSerialPrint()
 {
-  /* Get a new sensor event */
-  sensors_event_t event;
-  mag.getEvent(&event);
+  imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
 
-  float Pi = 3.14159;
-
-  // Calculate the angle of the vector y,x
-  float heading = (atan2(event.magnetic.y, event.magnetic.x) * 180) / Pi;
-
-  // Normalize to 0-360
-  if (heading < 0)
-  {
-    heading = 360 + heading;
-  }
-  Serial.print("heading:");
-  Serial.print(heading);
+  Serial.print("IMU(deg):");
+  Serial.print("X:");
+  Serial.print(euler.x());
+  Serial.print(";");
+  Serial.print("Y:");
+  Serial.print(euler.y());
+  Serial.print(";");
+  Serial.print("Z:");
+  Serial.print(euler.z());
+  Serial.print(";");
 }
 
 void setup()
@@ -157,10 +155,9 @@ void setup()
   // check SD card
   sdSetUpCheck();
   // check altimeter
-
   altimeterSetUpCheck();
-  // check compass
-  // compassSetUpCheck();
+  // check IMU
+  IMUSetUpCheck();
 
   ////Altimeter stuff
   // Set up oversampling and filter initialization
@@ -184,7 +181,7 @@ void loop()
   myFile.print("{");
 
   altimeterFilePrint();
-  // compassFilePrint();
+  IMUFilePrint();
   // compass issue: something about compassFile/Serial prevents other code in loop from running
 
   myFile.print("}");
@@ -194,7 +191,7 @@ void loop()
   // Serial testing
   Serial.print("{");
   altimeterSerialPrint();
-  // compassSerialPrint();
+  IMUSerialPrint();
   Serial.print("}");
   Serial.println();
 
