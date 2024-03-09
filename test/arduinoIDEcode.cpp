@@ -6,9 +6,8 @@
 #include <SD.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP3XX.h>
-// #include <Adafruit_LSM9DS1.h>
 #include <Adafruit_BNO055.h>
-#include <utility/imumaths.h>
+// #include <utility/imumaths.h>
 
 #define BMP_SCK 13
 #define BMP_MISO 12
@@ -17,7 +16,7 @@
 
 #define SEALEVELPRESSURE_HPA (1013.25)
 
-#define BNO055_SAMPLERATE_DELAY_MS (100)
+#define BNO055_SAMPLERATE_DELAY_MS (10)
 
 // altimeter object
 Adafruit_BMP3XX bmp;
@@ -118,7 +117,7 @@ void IMUFilePrint()
   imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
 
   /* Display the floating point data */
-  myFile.print("IMU(deg):");
+  myFile.print("IMU(deg) ");
   myFile.print("X:");
   myFile.print(euler.x());
   myFile.print(";");
@@ -133,7 +132,7 @@ void IMUSerialPrint()
 {
   imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
 
-  Serial.print("IMU(deg):");
+  Serial.print("IMU(deg) ");
   Serial.print("X:");
   Serial.print(euler.x());
   Serial.print(";");
@@ -147,7 +146,7 @@ void IMUSerialPrint()
 
 void setup()
 {
-  Serial.begin(115200);
+  Serial.begin(9600);
   while (!Serial)
     ;
   Serial.println("Initializing Tests");
@@ -177,8 +176,15 @@ void loop()
   }
 
   myFile = SD.open("test.txt", FILE_WRITE);
+
   // Print to file
   myFile.print("{");
+
+  myFile.print("time(millis):");
+  // record time
+  int time = millis();
+  myFile.print(time);
+  myFile.print(";");
 
   altimeterFilePrint();
   IMUFilePrint();
@@ -190,10 +196,11 @@ void loop()
 
   // Serial testing
   Serial.print("{");
+  Serial.print("time(millis):");
+  Serial.print(time);
+  Serial.print(";");
   altimeterSerialPrint();
   IMUSerialPrint();
   Serial.print("}");
   Serial.println();
-
-  delay(1000);
 }
