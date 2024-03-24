@@ -3,28 +3,45 @@
 
 #include <Wire.h>
 #include <SPI.h>
-#include <SD.h>
+#include <SD.h> // SD library
 #include <Adafruit_Sensor.h>
-#include <Adafruit_BMP3XX.h>
-#include <Adafruit_BNO055.h>
-// #include <utility/imumaths.h>
+#include <Adafruit_BMP3XX.h> // altimeter library
+#include <Adafruit_BNO055.h> // IMU library
+#include <AccelStepper.h>    // stepper library
 
+// altimeter definitions
 #define BMP_SCK 13
 #define BMP_MISO 12
 #define BMP_MOSI 11
 #define BMP_CS 10
+// which port the pull switch is connected to
+#define PULL_SWITCH A1
 
 #define SEALEVELPRESSURE_HPA (1013.25)
-
 #define BNO055_SAMPLERATE_DELAY_MS (10)
 
-// altimeter object
+// Stepper objects
+AccelStepper stepperRight(AccelStepper::FULL4WIRE, 2, 3, 4, 5);
+AccelStepper stepperLeft(AccelStepper::FULL4WIRE, 2, 3, 4, 5);
+
+// Altimeter object
 Adafruit_BMP3XX bmp;
-// file object
+// File object
 File myFile;
-// i2c
-// Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1();
+// IMU
 Adafruit_BNO055 bno = Adafruit_BNO055(-1, 0x28, &Wire);
+// Starting altitude
+float startAlt;
+// Braking altitude
+float brakeAlt = startAlt + 50;
+// pin out - says whether the pin is in or not
+bool pinOut = false;
+// what state are we in
+// 0 - neutral
+// 1 - brake
+// 2 - turn left
+// 3 - turn right
+int state = 0;
 
 // check SD connection and file write
 bool sdSetUpCheck()
@@ -69,6 +86,7 @@ bool altimeterSetUpCheck()
   Serial.println("Altimeter Setup: Success");
   return true;
 }
+// check IMU connection
 bool IMUSetUpCheck()
 {
   // Try to initialise and warn if we couldn't detect the chip
@@ -112,6 +130,7 @@ void altimeterSerialPrint()
   Serial.print(bmp.readAltitude(SEALEVELPRESSURE_HPA));
   Serial.print(";");
 }
+// print IMU data to file
 void IMUFilePrint()
 {
   imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
@@ -128,6 +147,7 @@ void IMUFilePrint()
   myFile.print(euler.z());
   myFile.print(";");
 }
+// print IMU to serial monitor
 void IMUSerialPrint()
 {
   imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
@@ -143,38 +163,98 @@ void IMUSerialPrint()
   Serial.print(euler.z());
   Serial.print(";");
 }
-
-void setup()
+// get avg start altitude based on first 20 readings.
+float avgStartAltitude()
 {
-  Serial.begin(9600);
-  while (!Serial)
-    ;
-  Serial.println("Initializing Tests");
-
-  // check SD card
-  sdSetUpCheck();
-  // check altimeter
-  altimeterSetUpCheck();
-  // check IMU
-  IMUSetUpCheck();
-
-  ////Altimeter stuff
-  // Set up oversampling and filter initialization
-  bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
-  bmp.setPressureOversampling(BMP3_OVERSAMPLING_4X);
-  bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
-  bmp.setOutputDataRate(BMP3_ODR_50_HZ);
+  float sum = 0;
+  // excludes first reading (autmatic #)
+  bmp.readAltitude(SEALEVELPRESSURE_HPA);
+  for (int i = 0; i < 20; i++)
+  {
+    sum = sum + bmp.readAltitude(SEALEVELPRESSURE_HPA);
+  }
+  return sum / 20;
 }
 
-void loop()
+// turn stepper left
+void turnLeft(AccelStepper stepper)
 {
-  // if the altimeter is performing
-  if (!bmp.performReading())
-  {
-    Serial.println("Altimeter: fail");
-    // return;
-  }
+  // turn left
+  stepper.move(-100);
 
+  // Run the stepper motor until it reaches the target position
+  while (stepper.distanceToGo() != 0)
+  {
+    stepper.run();
+  }
+}
+// turn stepper right
+void turnRight(AccelStepper stepper)
+{
+  // turn right
+  stepper.move(100);
+
+  // Run the stepper motor until it reaches the target position
+  while (stepper.distanceToGo() != 0)
+  {
+    stepper.run();
+  }
+}
+
+// braking function
+void pullBrakes()
+{
+
+  // insert motor test
+  if (state == 0) // neutral position
+  {
+    // pull both lines in
+    turnRight(stepperLeft);
+    turnRight(stepperRight);
+  }
+  else // state = 2 = turning left
+  {
+    // move motors to neutral position
+    turnLeft(stepperRight);
+    turnRight(stepperLeft);
+    // pull both lines in
+    turnRight(stepperLeft);
+    turnRight(stepperRight);
+  }
+  state = 1;
+  printFile();
+  myFile.println("End");
+
+  delay(10);
+  while (1)
+  {
+    printSerial();
+  }
+}
+// check to see if we're at braking altitude
+bool waitForAlt(int waitDuration)
+{
+  int start = millis();
+  while (1)
+  {
+    printFile();
+    printSerial();
+
+    int alt = bmp.readAltitude(SEALEVELPRESSURE_HPA);
+    if (alt <= brakeAlt)
+    {
+      return true;
+    }
+    if (millis() - start >= waitDuration)
+    {
+      return false;
+    }
+    delay(10); // avoid overpolling sensor
+  }
+}
+// print data to file
+void printFile()
+{
   myFile = SD.open("test.txt", FILE_WRITE);
 
   // Print to file
@@ -188,19 +268,134 @@ void loop()
 
   altimeterFilePrint();
   IMUFilePrint();
-  // compass issue: something about compassFile/Serial prevents other code in loop from running
+
+  myFile.print("pin:");
+  myFile.print(pinOut);
+  myFile.print(";");
+
+  myFile.print("state:");
+  myFile.print(state);
+  myFile.print(";");
 
   myFile.print("}");
   myFile.println();
   myFile.close();
-
+}
+// print data to serial
+void printSerial()
+{
   // Serial testing
   Serial.print("{");
   Serial.print("time(millis):");
+  int time = millis();
   Serial.print(time);
   Serial.print(";");
   altimeterSerialPrint();
   IMUSerialPrint();
+  Serial.print("pin:");
+  Serial.print(pinOut);
+  Serial.print(";");
+  Serial.print("state:");
+  Serial.print(state);
+  Serial.print(";");
   Serial.print("}");
   Serial.println();
+}
+
+void setup()
+{
+  Serial.begin(9600);
+  while (!Serial)
+    ;
+  Serial.println("Initializing Tests");
+
+  // pin setup
+  pinMode(PULL_SWITCH, INPUT_PULLUP);
+  // check SD card
+  sdSetUpCheck();
+  // check altimeter
+  if (altimeterSetUpCheck())
+  {
+    startAlt = avgStartAltitude();
+  }
+  else
+  {
+    // fix
+    startAlt = -1;
+  }
+  // check IMU
+  IMUSetUpCheck();
+
+  // Left Motor setup
+  //  Set the maximum speed and acceleration
+  stepperLeft.setMaxSpeed(1000.0);
+  stepperLeft.setAcceleration(500.0); // Set your desired acceleration in steps per second squared
+  // Set the initial position to 0 degrees
+  stepperLeft.setCurrentPosition(0);
+
+  // Right Motor setup
+  stepperRight.setMaxSpeed(1000.0);
+  stepperRight.setAcceleration(500.0);
+  stepperRight.setCurrentPosition(0);
+
+  ////Altimeter setup
+  // Set up oversampling and filter initialization
+  bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
+  bmp.setPressureOversampling(BMP3_OVERSAMPLING_4X);
+  bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
+  bmp.setOutputDataRate(BMP3_ODR_50_HZ);
+}
+
+void loop()
+{
+
+  // if the altimeter is performing
+  // fix
+  if (!bmp.performReading())
+  {
+    myFile.println("Altimeter: fail");
+    myFile.println(millis());
+    Serial.println("Altimeter: fail");
+    // return;
+  }
+
+  // wait for pin to be pulled
+  printFile();
+  printSerial();
+  while (1)
+  {
+    // don't want to fill file
+    //  printFile();
+    printSerial();
+    if (digitalRead(PULL_SWITCH) == LOW)
+    {
+      printFile();
+      printSerial();
+      pinOut = true;
+      break;
+    }
+    delay(10);
+  }
+
+  // once pin is pulled, turn motor, check for braking altitude
+  while (1)
+  {
+    state = 2; // turn left
+    // insert motor test
+    turnLeft(stepperLeft);
+    turnRight(stepperRight);
+
+    if (waitForAlt(5000))
+    {
+      pullBrakes();
+    }
+    state = 0; // neutral
+    // insert motor test
+    turnLeft(stepperRight);
+    turnRight(stepperLeft);
+    if (waitForAlt(10000))
+    {
+      pullBrakes();
+    }
+  }
 }

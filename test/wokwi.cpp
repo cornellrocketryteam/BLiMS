@@ -8,7 +8,7 @@ int stepCount = 0;
 // for your motor
 
 // initialize the stepper library on pins 8 through 11:
-Stepper myStepper(stepsPerRevolution, 8, 9, 10, 11);
+Stepper myStepper(stepsPerRevolution, 6, 7, 8, 9);
 File myFile;
 
 void turnLeft()
