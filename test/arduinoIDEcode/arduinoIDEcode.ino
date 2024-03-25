@@ -203,7 +203,7 @@ void pullBrakes() {
     // don't do anything
   }
 
-  state = BREAK_LINE_BREAK;
+  state = BREAK_STATE_BREAK;
 
   printFile();
   myFile.println("End");
