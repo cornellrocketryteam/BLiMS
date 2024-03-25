@@ -20,6 +20,13 @@
 #define SEALEVELPRESSURE_HPA (1013.25)
 #define BNO055_SAMPLERATE_DELAY_MS (10)
 
+enum break_state_t {
+  BREAK_STATE_NEUTRAL = 0,
+  BREAK_STATE_BREAK,
+  BREAK_STATE_TURN_LEFT,
+  BREAK_STATE_TURN_RIGHT
+};
+
 // Stepper objects
 AccelStepper stepperRight(AccelStepper::FULL4WIRE, 2, 3, 4, 5);
 AccelStepper stepperLeft(AccelStepper::FULL4WIRE, 2, 3, 4, 5);
@@ -36,12 +43,8 @@ float startAlt;
 float brakeAlt = startAlt + 50;
 // pin out - says whether the pin is in or not
 bool pinOut = false;
-// what state are we in
-// 0 - neutral
-// 1 - brake
-// 2 - turn left
-// 3 - turn right
-int state = 0;
+
+break_state_t state = BREAK_STATE_NEUTRAL;
 
 // check SD connection and file write
 bool sdSetUpCheck() {
@@ -162,7 +165,7 @@ float avgStartAltitude() {
 }
 
 // turn stepper left
-void turnLeft(AccelStepper stepper) {
+void releaseLine(AccelStepper stepper) {
   // turn left
   stepper.move(-100);
 
@@ -172,7 +175,7 @@ void turnLeft(AccelStepper stepper) {
   }
 }
 // turn stepper right
-void turnRight(AccelStepper stepper) {
+void pullLine(AccelStepper stepper) {
   // turn right
   stepper.move(100);
 
@@ -185,31 +188,34 @@ void turnRight(AccelStepper stepper) {
 // braking function
 void pullBrakes() {
 
-  // insert motor test
-  if (state == 0)  // neutral position
-  {
-    // pull both lines in
-    turnRight(stepperLeft);
-    turnRight(stepperRight);
-  } else  // state = 2 = turning left
-  {
-    // move motors to neutral position
-    turnLeft(stepperRight);
-    turnRight(stepperLeft);
-    // pull both lines in
-    turnRight(stepperLeft);
-    turnRight(stepperRight);
+  if (state == BREAK_STATE_NEUTRAL) {
+    // pull both breaklines
+    pullLine(stepperLeft);
+    pullLine(stepperRight);
+  } else if (state == BREAK_STATE_TURN_LEFT) {
+    // the left breakline is already pulled, so we only need to pull the right
+    pullLine(stepperRight);
+  } else if (state == BREAK_STATE_TURN_RIGHT) {
+    // the right breakline is already pulled, so we only need to pull the left
+    pullLine(stepperLeft);
+  } else {
+    // state == BREAK_STATE_BRAKE
+    // don't do anything
   }
-  state = 1;
+
+  state = BREAK_LINE_BREAK;
+
   printFile();
   myFile.println("End");
 
-  delay(10);
-  while (1) {
+  while(1) {
     printSerial();
+    delay(10);
   }
 }
+
 // check to see if we're at braking altitude
+// returns "false" for timeout, and "true" for breaking altitude reached.
 bool waitForAlt(int waitDuration) {
   int start = millis();
   while (1) {
@@ -345,16 +351,16 @@ void loop() {
   while (1) {
     state = 2;  // turn left
     // insert motor test
-    turnLeft(stepperLeft);
-    turnRight(stepperRight);
+    releaseLine(stepperLeft);
+    pullLine(stepperRight);
 
     if (waitForAlt(5000)) {
       pullBrakes();
     }
     state = 0;  // neutral
     // insert motor test
-    turnLeft(stepperRight);
-    turnRight(stepperLeft);
+    releaseLine(stepperRight);
+    pullLine(stepperLeft);
     if (waitForAlt(10000)) {
       pullBrakes();
     }
