@@ -3,11 +3,11 @@
 
 #include <Wire.h>
 #include <SPI.h>
-#include <SD.h> // SD library
+#include <SD.h>  // SD library
 #include <Adafruit_Sensor.h>
-#include <Adafruit_BMP3XX.h> // altimeter library
-#include <Adafruit_BNO055.h> // IMU library
-#include <AccelStepper.h>    // stepper library
+#include <Adafruit_BMP3XX.h>  // altimeter library
+#include <Adafruit_BNO055.h>  // IMU library
+#include <AccelStepper.h>     // stepper library
 
 // altimeter definitions
 #define BMP_SCK 13
@@ -19,6 +19,13 @@
 
 #define SEALEVELPRESSURE_HPA (1013.25)
 #define BNO055_SAMPLERATE_DELAY_MS (10)
+
+enum break_state_t {
+  BREAK_STATE_NEUTRAL = 0,
+  BREAK_STATE_BREAK,
+  BREAK_STATE_TURN_LEFT,
+  BREAK_STATE_TURN_RIGHT
+};
 
 // Stepper objects
 AccelStepper stepperRight(AccelStepper::FULL4WIRE, 2, 3, 4, 5);
@@ -36,19 +43,13 @@ float startAlt;
 float brakeAlt = startAlt + 50;
 // pin out - says whether the pin is in or not
 bool pinOut = false;
-// what state are we in
-// 0 - neutral
-// 1 - brake
-// 2 - turn left
-// 3 - turn right
-int state = 0;
+
+break_state_t state = BREAK_STATE_NEUTRAL;
 
 // check SD connection and file write
-bool sdSetUpCheck()
-{
+bool sdSetUpCheck() {
 
-  if (!SD.begin(10))
-  {
+  if (!SD.begin(10)) {
     Serial.println("SD Setup: Fail");
     return false;
   }
@@ -57,27 +58,22 @@ bool sdSetUpCheck()
 
   myFile = SD.open("test.txt", FILE_WRITE);
   // if file opened
-  if (myFile)
-  {
+  if (myFile) {
 
     Serial.println("SD Writing to File: Success");
     myFile.println("SD Writing to File: Success");
     // close the file:
     myFile.close();
     return true;
-  }
-  else
-  {
+  } else {
     // if the file didn't open, print an error:
     Serial.println("SD Writing to File: Fail");
     return false;
   }
 }
 /// check altimeter connection
-bool altimeterSetUpCheck()
-{
-  if (!bmp.begin_I2C())
-  { // hardware I2C mode, can pass in address & alt Wire
+bool altimeterSetUpCheck() {
+  if (!bmp.begin_I2C()) {  // hardware I2C mode, can pass in address & alt Wire
     // if (! bmp.begin_SPI(BMP_CS)) {  // hardware SPI mode
     // if (! bmp.begin_SPI(BMP_CS, BMP_SCK, BMP_MISO, BMP_MOSI)) {  // software SPI mode
     Serial.println("Altimeter Setup: Fail");
@@ -87,11 +83,9 @@ bool altimeterSetUpCheck()
   return true;
 }
 // check IMU connection
-bool IMUSetUpCheck()
-{
+bool IMUSetUpCheck() {
   // Try to initialise and warn if we couldn't detect the chip
-  if (!bno.begin())
-  {
+  if (!bno.begin()) {
     Serial.println("IMU Setup: Fail");
     return false;
   }
@@ -100,8 +94,7 @@ bool IMUSetUpCheck()
   return true;
 }
 // print altimeter data to file
-void altimeterFilePrint()
-{
+void altimeterFilePrint() {
 
   myFile.print("temperature(*C):");
   myFile.print(bmp.temperature);
@@ -116,8 +109,7 @@ void altimeterFilePrint()
   myFile.print(";");
 }
 // print altimeter data to serial
-void altimeterSerialPrint()
-{
+void altimeterSerialPrint() {
   Serial.print("temperature(*C):");
   Serial.print(bmp.temperature);
   Serial.print(";");
@@ -131,8 +123,7 @@ void altimeterSerialPrint()
   Serial.print(";");
 }
 // print IMU data to file
-void IMUFilePrint()
-{
+void IMUFilePrint() {
   imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
 
   /* Display the floating point data */
@@ -148,8 +139,7 @@ void IMUFilePrint()
   myFile.print(";");
 }
 // print IMU to serial monitor
-void IMUSerialPrint()
-{
+void IMUSerialPrint() {
   imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
 
   Serial.print("IMU(deg) ");
@@ -164,97 +154,86 @@ void IMUSerialPrint()
   Serial.print(";");
 }
 // get avg start altitude based on first 20 readings.
-float avgStartAltitude()
-{
+float avgStartAltitude() {
   float sum = 0;
   // excludes first reading (autmatic #)
   bmp.readAltitude(SEALEVELPRESSURE_HPA);
-  for (int i = 0; i < 20; i++)
-  {
+  for (int i = 0; i < 20; i++) {
     sum = sum + bmp.readAltitude(SEALEVELPRESSURE_HPA);
   }
   return sum / 20;
 }
 
 // turn stepper left
-void turnLeft(AccelStepper stepper)
-{
+void releaseLine(AccelStepper stepper) {
   // turn left
   stepper.move(-100);
 
   // Run the stepper motor until it reaches the target position
-  while (stepper.distanceToGo() != 0)
-  {
+  while (stepper.distanceToGo() != 0) {
     stepper.run();
   }
 }
 // turn stepper right
-void turnRight(AccelStepper stepper)
-{
+void pullLine(AccelStepper stepper) {
   // turn right
   stepper.move(100);
 
   // Run the stepper motor until it reaches the target position
-  while (stepper.distanceToGo() != 0)
-  {
+  while (stepper.distanceToGo() != 0) {
     stepper.run();
   }
 }
 
 // braking function
-void pullBrakes()
-{
+void pullBrakes() {
 
-  // insert motor test
-  if (state == 0) // neutral position
-  {
-    // pull both lines in
-    turnRight(stepperLeft);
-    turnRight(stepperRight);
+  if (state == BREAK_STATE_NEUTRAL) {
+    // pull both breaklines
+    pullLine(stepperLeft);
+    pullLine(stepperRight);
+  } else if (state == BREAK_STATE_TURN_LEFT) {
+    // the left breakline is already pulled, so we only need to pull the right
+    pullLine(stepperRight);
+  } else if (state == BREAK_STATE_TURN_RIGHT) {
+    // the right breakline is already pulled, so we only need to pull the left
+    pullLine(stepperLeft);
+  } else {
+    // state == BREAK_STATE_BRAKE
+    // don't do anything
   }
-  else // state = 2 = turning left
-  {
-    // move motors to neutral position
-    turnLeft(stepperRight);
-    turnRight(stepperLeft);
-    // pull both lines in
-    turnRight(stepperLeft);
-    turnRight(stepperRight);
-  }
-  state = 1;
+
+  state = BREAK_STATE_BREAK;
+
   printFile();
   myFile.println("End");
 
-  delay(10);
-  while (1)
-  {
+  while(1) {
     printSerial();
+    delay(10);
   }
 }
+
 // check to see if we're at braking altitude
-bool waitForAlt(int waitDuration)
-{
+// returns "false" for timeout, and "true" for breaking altitude reached.
+bool waitForAlt(int waitDuration) {
   int start = millis();
-  while (1)
-  {
+  while (1) {
     printFile();
     printSerial();
 
     int alt = bmp.readAltitude(SEALEVELPRESSURE_HPA);
-    if (alt <= brakeAlt)
-    {
+    if (alt <= brakeAlt) {
       return true;
     }
-    if (millis() - start >= waitDuration)
-    {
+    if (millis() - start >= waitDuration) {
       return false;
     }
-    delay(10); // avoid overpolling sensor
+    delay(10);  // avoid overpolling sensor
   }
 }
 // print data to file
-void printFile()
-{
+void printFile() {
   myFile = SD.open("test.txt", FILE_WRITE);
 
   // Print to file
@@ -282,8 +261,7 @@ void printFile()
   myFile.close();
 }
 // print data to serial
-void printSerial()
-{
+void printSerial() {
   // Serial testing
   Serial.print("{");
   Serial.print("time(millis):");
@@ -302,8 +280,7 @@ void printSerial()
   Serial.println();
 }
 
-void setup()
-{
+void setup() {
   Serial.begin(9600);
   while (!Serial)
     ;
@@ -314,12 +291,9 @@ void setup()
   // check SD card
   sdSetUpCheck();
   // check altimeter
-  if (altimeterSetUpCheck())
-  {
+  if (altimeterSetUpCheck()) {
     startAlt = avgStartAltitude();
-  }
-  else
-  {
+  } else {
     // fix
     startAlt = -1;
   }
@@ -329,7 +303,7 @@ void setup()
   // Left Motor setup
   //  Set the maximum speed and acceleration
   stepperLeft.setMaxSpeed(1000.0);
-  stepperLeft.setAcceleration(500.0); // Set your desired acceleration in steps per second squared
+  stepperLeft.setAcceleration(500.0);  // Set your desired acceleration in steps per second squared
   // Set the initial position to 0 degrees
   stepperLeft.setCurrentPosition(0);
 
@@ -346,13 +320,11 @@ void setup()
   bmp.setOutputDataRate(BMP3_ODR_50_HZ);
 }
 
-void loop()
-{
+void loop() {
 
   // if the altimeter is performing
   // fix
-  if (!bmp.performReading())
-  {
+  if (!bmp.performReading()) {
     myFile.println("Altimeter: fail");
     myFile.println(millis());
     Serial.println("Altimeter: fail");
@@ -362,13 +334,11 @@ void loop()
   // wait for pin to be pulled
   printFile();
   printSerial();
-  while (1)
-  {
+  while (1) {
     // don't want to fill file
     //  printFile();
     printSerial();
-    if (digitalRead(PULL_SWITCH) == LOW)
-    {
+    if (digitalRead(PULL_SWITCH) == LOW) {
       printFile();
       printSerial();
       pinOut = true;
@@ -378,23 +348,20 @@ void loop()
   }
 
   // once pin is pulled, turn motor, check for braking altitude
-  while (1)
-  {
-    state = 2; // turn left
+  while (1) {
+    state = 2;  // turn left
     // insert motor test
-    turnLeft(stepperLeft);
-    turnRight(stepperRight);
+    releaseLine(stepperLeft);
+    pullLine(stepperRight);
 
-    if (waitForAlt(5000))
-    {
+    if (waitForAlt(5000)) {
       pullBrakes();
     }
-    state = 0; // neutral
+    state = 0;  // neutral
     // insert motor test
-    turnLeft(stepperRight);
-    turnRight(stepperLeft);
-    if (waitForAlt(10000))
-    {
+    releaseLine(stepperRight);
+    pullLine(stepperLeft);
+    if (waitForAlt(10000)) {
       pullBrakes();
     }
   }
