@@ -6,26 +6,40 @@
  */
 
 #include "blims.hpp"
-#include "blims_pins.hpp"
-#include "../core/state.hpp"
+#include "blims_state.hpp"
 #include "hardware/pwm.h"
 #include "hardware/timer.h"
 
-int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data)
+begin(BLIMSMode mode)
 {
-
-  printf("in execute, action index = %d\n", state::blims::curr_action_index);
-  state::blims::curr_action_index++;
-
-  if (state::blims::curr_action_index >= 10)
-  {
-    state::blims::curr_action_index = 0;
-  }
-  set_motor_position(action_arr[state::blims::curr_action_index].position);
-  // state::flight::events.emplace_back(Event::blims_threshold_reached); // we've completed a motor action in action_arr
-  add_alarm_in_ms(action_arr[state::blims::curr_action_index].duration, execute, NULL, false);
-  return 0;
+  pwm_setup();
+  // set flight mode in state to mode we want
 }
+
+BLIMSDataOut(BLIMSData data)
+{
+  BLIMSDataOut data_out = {
+    motor_position = general::motor_position;
+}
+return data_out;
+// depending on what our mode is, execute different functions
+}
+
+// int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data)
+// {
+
+//   printf("in execute, action index = %d\n", state::blims::curr_action_index);
+//   state::blims::curr_action_index++;
+
+//   if (state::blims::curr_action_index >= 10)
+//   {
+//     state::blims::curr_action_index = 0;
+//   }
+//   set_motor_position(action_arr[state::blims::curr_action_index].position);
+//   // state::flight::events.emplace_back(Event::blims_threshold_reached); // we've completed a motor action in action_arr
+//   add_alarm_in_ms(action_arr[state::blims::curr_action_index].duration, execute, NULL, false);
+//   return 0;
+// }
 
 void BLIMS::set_motor_position(float position)
 {
@@ -45,7 +59,7 @@ void BLIMS::set_motor_position(float position)
   // state::blims::motor_position = position;
 }
 
-void BLIMS::pwm_setup()
+void pwm_setup()
 {
   // Set up the PWM configuration
   uint slice_num = pwm_gpio_to_slice_num(BLIMS_MOTOR);
