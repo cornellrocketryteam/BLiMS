@@ -7,44 +7,61 @@
 
 #include "blims.hpp"
 #include "blims_state.hpp"
+#include "blims_constants.hpp"
 #include "hardware/pwm.h"
 #include "hardware/timer.h"
 
-begin(BLIMSMode mode)
+BLIMS::begin(BLIMSMode mode)
 {
   pwm_setup();
-  // set flight mode in state to mode we want
+  flight::flight_mode = mode;
 }
 
-BLIMSDataOut(BLIMSData data)
+BLIMSDataOut BLIMS::execute(BLIMSDataIn data)
 {
-  BLIMSDataOut data_out = {
-    motor_position = general::motor_position;
+  if (flight::flight_mode == STANDBY)
+  {
+    print("Standby");
+  }
+  else if (flight::flight_mode == MVP_Flight)
+  {
+    print("MVP_Flight");
+    add_alarm_in_ms(BLIMS_CONSTANTS_HPP::initial_hold_threshold, BLIMS::execute_MVP, NULL, true);
+    // Note: could when we start the delay have any effect on when blims starts?
+    // int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data);
+  }
+  else if (flight::flight_mode == MVP_Plus)
+  {
+    print("MVP_Plus");
+  }
+  else if (flight::flight_mode == LV)
+  {
+    print("LV");
+  }
+
+  return flight::data_out;
+  // depending on what our mode is, execute different functions
 }
-return data_out;
-// depending on what our mode is, execute different functions
+
+int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data)
+{
+
+  // printf("in execute, action index = %d\n", state::blims::curr_action_index);
+  MVP::curr_action_index++;
+
+  if (MVP::curr_action_index >= 10)
+  {
+    MVP::curr_action_index = 0;
+  }
+  set_motor_position(action_arr[MVP::curr_action_index].position);
+  // state::flight::events.emplace_back(Event::blims_threshold_reached); // we've completed a motor action in action_arr
+  add_alarm_in_ms(action_arr[MVP::curr_action_index].duration, execute, NULL, false);
+  return 0;
 }
-
-// int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data)
-// {
-
-//   printf("in execute, action index = %d\n", state::blims::curr_action_index);
-//   state::blims::curr_action_index++;
-
-//   if (state::blims::curr_action_index >= 10)
-//   {
-//     state::blims::curr_action_index = 0;
-//   }
-//   set_motor_position(action_arr[state::blims::curr_action_index].position);
-//   // state::flight::events.emplace_back(Event::blims_threshold_reached); // we've completed a motor action in action_arr
-//   add_alarm_in_ms(action_arr[state::blims::curr_action_index].duration, execute, NULL, false);
-//   return 0;
-// }
 
 void BLIMS::set_motor_position(float position)
 {
   // printf("setting motor position to %f\n", position);
-  uint16_t wrap_cycle_count = 65535;
   uint slice_num = pwm_gpio_to_slice_num(BLIMS_MOTOR);
   // Position should be between 0-1
   // Should map between -17 to 17 turns (configured in web UI)
@@ -78,3 +95,12 @@ void pwm_setup()
   pwm_set_wrap(slice_num, wrap_cycle_count);
   pwm_set_enabled(slice_num, true);
 }
+
+// This was in FSW main -> flight_mode.cpp
+//  state::blims::curr_action_duration = blims.action_arr[state::blims::curr_action_index].duration;
+
+// Take a look at execute_MVP - how is everything supposed to be accessed? what about wrap_cyle_count
+
+// how is the motor pin supposed to be set? see FSW pins.hpp/cpp
+
+// why does action_arr need no reference to MVP?

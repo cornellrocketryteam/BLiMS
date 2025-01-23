@@ -20,17 +20,15 @@ struct Action
 class BLIMS
 {
 public:
-    // pwm_setup configures the pwm signal
-  void pwm_setup();
-
-  static int64_t execute_MVP(alarm_id_t id, void *user_data);
+  void begin(BLIMSMode mode);
+  BLIMSDataOut execute(BLIMSDataIn data);
 
 private:
+  // configures the pwm signal
+  void pwm_setup();
   // sets position of motor on a 0-1 scale
   static void set_motor_position(float position);
-
-  // want wrap to be as large as possible, increases the amount of steps so that we have as much control as possible
-  uint16_t wrap_cycle_count = 65535;
+  static int64_t execute_MVP(alarm_id_t id, void *user_data);
 };
 
 #endif

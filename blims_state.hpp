@@ -4,8 +4,8 @@
 
 enum BLIMSMode
 {
-  STANDBY, //
-  MVP,     // Jan 2025 launch
+  STANDBY,    //
+  MVP_Flight, // Jan 2025 launch
   MVP_Plus,
   LV
 };
@@ -20,23 +20,26 @@ struct BLIMSDataIn
 };
 struct BLIMSDataOut
 {
-  float motor_position;
+  float *motor_position;
 };
-struct ActionArr
+struct Action
 {
   float position;
   uint32_t duration;
 };
-namespace general
+
+namespace flight
 {
   BLIMSMode flight_mode;
   extern float motor_position;
+  BLIMSDataIn data_in;
+  BLIMSDataOut data_out;
 }
 namespace MVP
 {
   extern int32_t curr_action_duration;
   extern int curr_action_index;
-  extern ActionArr action_arr[10];
+  extern Action action_arr[10];
 };
 
 #endif
