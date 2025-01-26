@@ -7,19 +7,15 @@
 #ifndef BLIMS_HPP
 #define BLIMS_HPP
 #include "blims_constants.hpp"
-#include "blims_pins.hpp"
+#include "blims_state.hpp"
 #include "hardware/pwm.h"
 #include "pico/stdlib.h"
-
-struct Action
-{
-  float position;
-  uint32_t duration;
-};
+#include "cstdio"
 
 class BLIMS
 {
 public:
+  // associated with blims object because not static
   void begin(BLIMSMode mode);
   BLIMSDataOut execute(BLIMSDataIn data);
 

@@ -30,10 +30,10 @@ struct Action
 
 namespace flight
 {
-  BLIMSMode flight_mode;
+  extern BLIMSMode flight_mode;
   extern float motor_position;
-  BLIMSDataIn data_in;
-  BLIMSDataOut data_out;
+  extern BLIMSDataIn data_in;
+  extern BLIMSDataOut data_out;
 }
 namespace MVP
 {

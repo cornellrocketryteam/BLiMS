@@ -11,7 +11,7 @@
 #include "hardware/pwm.h"
 #include "hardware/timer.h"
 
-BLIMS::begin(BLIMSMode mode)
+void BLIMS::begin(BLIMSMode mode)
 {
   pwm_setup();
   flight::flight_mode = mode;
@@ -21,22 +21,22 @@ BLIMSDataOut BLIMS::execute(BLIMSDataIn data)
 {
   if (flight::flight_mode == STANDBY)
   {
-    print("Standby");
+    printf("Standby");
   }
   else if (flight::flight_mode == MVP_Flight)
   {
-    print("MVP_Flight");
+    printf("MVP_Flight");
     add_alarm_in_ms(BLIMS_CONSTANTS_HPP::initial_hold_threshold, BLIMS::execute_MVP, NULL, true);
     // Note: could when we start the delay have any effect on when blims starts?
     // int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data);
   }
   else if (flight::flight_mode == MVP_Plus)
   {
-    print("MVP_Plus");
+    printf("MVP_Plus");
   }
   else if (flight::flight_mode == LV)
   {
-    print("LV");
+    printf("LV");
   }
 
   return flight::data_out;
@@ -53,16 +53,16 @@ int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data)
   {
     MVP::curr_action_index = 0;
   }
-  set_motor_position(action_arr[MVP::curr_action_index].position);
+  set_motor_position(MVP::action_arr[MVP::curr_action_index].position);
   // state::flight::events.emplace_back(Event::blims_threshold_reached); // we've completed a motor action in action_arr
-  add_alarm_in_ms(action_arr[MVP::curr_action_index].duration, execute, NULL, false);
+  add_alarm_in_ms(MVP::action_arr[MVP::curr_action_index].duration, BLIMS::execute_MVP, NULL, false);
   return 0;
 }
 
 void BLIMS::set_motor_position(float position)
 {
   // printf("setting motor position to %f\n", position);
-  uint slice_num = pwm_gpio_to_slice_num(BLIMS_MOTOR);
+  uint slice_num = pwm_gpio_to_slice_num(blims_motor);
   // Position should be between 0-1
   // Should map between -17 to 17 turns (configured in web UI)
 
@@ -70,16 +70,16 @@ void BLIMS::set_motor_position(float position)
   uint16_t five_percent_duty_cycle = wrap_cycle_count * 0.05;
   // ranges between 5% and 10% duty cycle; 3276 ~= 5% duty, 6552 ~= 10% duty
   uint16_t duty = (uint16_t)(five_percent_duty_cycle + position * five_percent_duty_cycle);
-  pwm_set_chan_level(slice_num, pwm_gpio_to_channel(BLIMS_MOTOR), duty);
+  pwm_set_chan_level(slice_num, pwm_gpio_to_channel(blims_motor), duty);
 
   // update state of motor (what is the position at the current time)
   // state::blims::motor_position = position;
 }
 
-void pwm_setup()
+void BLIMS::pwm_setup()
 {
   // Set up the PWM configuration
-  uint slice_num = pwm_gpio_to_slice_num(BLIMS_MOTOR);
+  uint slice_num = pwm_gpio_to_slice_num(blims_motor);
 
   uint32_t clock = 125000000; // What our pico runs - set by the pico hardware itself
 

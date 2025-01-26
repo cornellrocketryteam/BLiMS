@@ -1,0 +1,5 @@
+# any build directory anywhere in the project will be ignored
+**/build/ 
+
+# macOs -> specific to macOs
+**/.DS_Store
