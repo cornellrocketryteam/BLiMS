@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.27)
 
 # Pull in SDK (must be before project)
-include(pico_sdk_import.cmake)
+include(../lib/pico-sdk/pico_sdk_init.cmake)
 
-project(blims_examples C CXX ASM)
+project(blims_examples C CXX ASM) #says what you'll use
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
@@ -16,14 +16,21 @@ add_compile_options(
     -Wno-unused-function
 )
 
+
+# Add source files from src/
+set(SOURCES
+  example1.cpp
+  ../src/blims.cpp
+  ../src/blims_state.cpp
+)
 # add_definitions(-DVERBOSE) potentially add some version of this
 
-add_executable(${PROJECT_NAME}
-    example1.cpp
-    ../blims.cpp
+add_executable(${PROJECT_NAME} #just cpp (compile) files 
+  ${SOURCES}
 )
+
 # Pull in common dependencies - need to check
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(${PROJECT_NAME} #all of these are included in pico lib
   pico_stdlib 
   hardware_i2c 
   hardware_pwm
