@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.27)
 # Pull in SDK (must be before project)
 include(../lib/pico-sdk/pico_sdk_init.cmake)
 
-project(blims_examples C CXX ASM) #says what you'll use
+project(blims_example C CXX ASM) #says what you'll use
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
@@ -19,7 +19,7 @@ add_compile_options(
 
 # Add source files from src/
 set(SOURCES
-  example1.cpp
+  rnptest.cpp
   ../src/blims.cpp
   ../src/blims_state.cpp
 )
