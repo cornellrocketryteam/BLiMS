@@ -15,29 +15,29 @@ void BLIMS::begin(BLIMSMode mode)
 {
   printf("Begin BLiMS");
   pwm_setup();
-  flight::flight_mode = mode;
+  blims::flight::flight_mode = mode;
 }
 
 BLIMSDataOut BLIMS::execute(BLIMSDataIn data_in)
 {
   printf("Execute BLiMS");
   // update state vars with FSW data
-  flight::latitude = data_in.latitude;
-  flight::longitude = data_in.longitude;
-  flight::speed = data_in.speed;
-  flight::track_angle = data_in.track_angle;
-  flight::heading = data_in.heading;
+  blims::flight::latitude = data_in.latitude;
+  blims::flight::longitude = data_in.longitude;
+  blims::flight::speed = data_in.speed;
+  blims::flight::track_angle = data_in.track_angle;
+  blims::flight::heading = data_in.heading;
 
-  if (flight::flight_mode == STANDBY)
+  if (blims::flight::flight_mode == STANDBY)
   {
     printf("Standby Mode");
   }
-  else if (flight::flight_mode == MVP_Flight)
+  else if (blims::flight::flight_mode == MVP_Flight)
   {
     printf("MVP_Flight Mode");
-    if (!flight::blims_init)
+    if (!blims::flight::blims_init)
     {
-      flight::blims_init = true;
+      blims::flight::blims_init = true;
       add_alarm_in_ms(BLIMS_CONSTANTS_HPP::initial_hold_threshold, BLIMS::execute_MVP, NULL, true);
     }
 
@@ -46,16 +46,16 @@ BLIMSDataOut BLIMS::execute(BLIMSDataIn data_in)
 
     // return data_out every cycle
   }
-  else if (flight::flight_mode == MVP_Plus)
+  else if (blims::flight::flight_mode == MVP_Plus)
   {
     printf("MVP_Plus");
   }
-  else if (flight::flight_mode == LV)
+  else if (blims::flight::flight_mode == LV)
   {
     printf("LV");
   }
 
-  return flight::data_out;
+  return blims::flight::data_out;
   // depending on what our mode is, execute different functions
 }
 
@@ -64,15 +64,15 @@ int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data)
   printf("Execute MVP");
 
   // printf("in execute, action index = %d\n", state::blims::curr_action_index);
-  MVP::curr_action_index++;
+  blims::MVP::curr_action_index++;
 
-  if (MVP::curr_action_index >= 10)
+  if (blims::MVP::curr_action_index >= 10)
   {
-    MVP::curr_action_index = 0;
+    blims::MVP::curr_action_index = 0;
   }
-  set_motor_position(MVP::action_arr[MVP::curr_action_index].position);
+  set_motor_position(blims::MVP::action_arr[blims::MVP::curr_action_index].position);
   // state::flight::events.emplace_back(Event::blims_threshold_reached); // we've completed a motor action in action_arr
-  add_alarm_in_ms(MVP::action_arr[MVP::curr_action_index].duration, BLIMS::execute_MVP, NULL, false);
+  add_alarm_in_ms(blims::MVP::action_arr[blims::MVP::curr_action_index].duration, BLIMS::execute_MVP, NULL, false);
 
   // update statex
   return 0; // need this for add_alarm_in_ms
@@ -95,7 +95,7 @@ void BLIMS::set_motor_position(float position)
   // update state of motor (what is the position at the current time)
   // state::blims::motor_position = position;
 
-  flight::data_out.motor_position = position;
+  blims::flight::data_out.motor_position = position;
 }
 
 void BLIMS::pwm_setup()
