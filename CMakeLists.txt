@@ -1,8 +1,8 @@
 add_library(BLiMS INTERFACE)
 
 target_sources(BLIMS INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/blims.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/blims_state.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/blims.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/blims_state.cpp
 )
 
 target_link_libraries(BLiMS INTERFACE 
