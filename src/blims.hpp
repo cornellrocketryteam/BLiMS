@@ -17,7 +17,7 @@ class BLIMS
 public:
   // associated with blims object because not static
   void begin(BLIMSMode mode);
-  BLIMSDataOut execute(BLIMSDataIn data);
+  BLIMSDataOut execute(BLIMSDataIn data_in);
 
 private:
   // configures the pwm signal

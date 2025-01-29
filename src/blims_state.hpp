@@ -20,7 +20,7 @@ struct BLIMSDataIn
 };
 struct BLIMSDataOut
 {
-  float *motor_position;
+  float motor_position;
 };
 struct Action
 {
@@ -30,10 +30,15 @@ struct Action
 
 namespace flight
 {
+  extern bool blims_init;
   extern BLIMSMode flight_mode;
   extern float motor_position;
-  extern BLIMSDataIn data_in;
   extern BLIMSDataOut data_out;
+  extern float longitude;
+  extern float latitude;
+  extern float speed;       // speed over the ground in knots
+  extern float track_angle; // degrees
+  extern float heading;     // degrees
 }
 namespace MVP
 {

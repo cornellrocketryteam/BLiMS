@@ -10,11 +10,16 @@
 
 namespace flight
 {
+  bool blims_init = false;
   BLIMSMode flight_mode = STANDBY;
   float motor_position = 0;
-  BLIMSDataIn data_in = {0, 0, 0, 0, 0};
-  BLIMSDataOut data_out = { // check with Cameron on this
-      .motor_position = &flight::motor_position};
+  BLIMSDataOut data_out = {
+      .motor_position = 0};
+  float longitude = 0;
+  float latitude = 0;
+  float speed = 0;
+  float track_angle = 0;
+  float heading = 0;
 }
 namespace MVP
 {

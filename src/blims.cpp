@@ -13,22 +13,38 @@
 
 void BLIMS::begin(BLIMSMode mode)
 {
+  printf("Begin BLiMS");
   pwm_setup();
   flight::flight_mode = mode;
 }
 
-BLIMSDataOut BLIMS::execute(BLIMSDataIn data)
+BLIMSDataOut BLIMS::execute(BLIMSDataIn data_in)
 {
+  printf("Execute BLiMS");
+  // update state vars with FSW data
+  flight::latitude = data_in.latitude;
+  flight::longitude = data_in.longitude;
+  flight::speed = data_in.speed;
+  flight::track_angle = data_in.track_angle;
+  flight::heading = data_in.heading;
+
   if (flight::flight_mode == STANDBY)
   {
-    printf("Standby");
+    printf("Standby Mode");
   }
   else if (flight::flight_mode == MVP_Flight)
   {
-    printf("MVP_Flight");
-    add_alarm_in_ms(BLIMS_CONSTANTS_HPP::initial_hold_threshold, BLIMS::execute_MVP, NULL, true);
+    printf("MVP_Flight Mode");
+    if (!flight::blims_init)
+    {
+      flight::blims_init = true;
+      add_alarm_in_ms(BLIMS_CONSTANTS_HPP::initial_hold_threshold, BLIMS::execute_MVP, NULL, true);
+    }
+
     // Note: could when we start the delay have any effect on when blims starts?
     // int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data);
+
+    // return data_out every cycle
   }
   else if (flight::flight_mode == MVP_Plus)
   {
@@ -45,6 +61,7 @@ BLIMSDataOut BLIMS::execute(BLIMSDataIn data)
 
 int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data)
 {
+  printf("Execute MVP");
 
   // printf("in execute, action index = %d\n", state::blims::curr_action_index);
   MVP::curr_action_index++;
@@ -56,7 +73,11 @@ int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data)
   set_motor_position(MVP::action_arr[MVP::curr_action_index].position);
   // state::flight::events.emplace_back(Event::blims_threshold_reached); // we've completed a motor action in action_arr
   add_alarm_in_ms(MVP::action_arr[MVP::curr_action_index].duration, BLIMS::execute_MVP, NULL, false);
-  return 0;
+
+  // update statex
+  return 0; // need this for add_alarm_in_ms
+
+  //
 }
 
 void BLIMS::set_motor_position(float position)
@@ -71,9 +92,10 @@ void BLIMS::set_motor_position(float position)
   // ranges between 5% and 10% duty cycle; 3276 ~= 5% duty, 6552 ~= 10% duty
   uint16_t duty = (uint16_t)(five_percent_duty_cycle + position * five_percent_duty_cycle);
   pwm_set_chan_level(slice_num, pwm_gpio_to_channel(blims_motor), duty);
-
   // update state of motor (what is the position at the current time)
   // state::blims::motor_position = position;
+
+  flight::data_out.motor_position = position;
 }
 
 void BLIMS::pwm_setup()

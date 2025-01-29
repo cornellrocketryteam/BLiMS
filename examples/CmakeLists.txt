@@ -19,7 +19,7 @@ add_compile_options(
 
 # Add source files from src/
 set(SOURCES
-  rnptest.cpp
+  simple_motor_test.cpp
   ../src/blims.cpp
   ../src/blims_state.cpp
 )
