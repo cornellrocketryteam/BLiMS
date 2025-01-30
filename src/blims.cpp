@@ -20,13 +20,10 @@ void BLIMS::begin(BLIMSMode mode)
 
 BLIMSDataOut BLIMS::execute(BLIMSDataIn data_in)
 {
-  printf("Execute BLiMS");
+  printf("Execute BLiMS - Data In:\n");
   // update state vars with FSW data
-  blims::flight::latitude = data_in.latitude;
-  blims::flight::longitude = data_in.longitude;
-  blims::flight::speed = data_in.speed;
-  blims::flight::track_angle = data_in.track_angle;
-  blims::flight::heading = data_in.heading;
+  update_state_vars(data_in);
+  data_print_test();
 
   if (blims::flight::flight_mode == STANDBY)
   {
@@ -61,7 +58,7 @@ BLIMSDataOut BLIMS::execute(BLIMSDataIn data_in)
 
 int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data)
 {
-  printf("Execute MVP");
+  printf("Execute MVP\n");
 
   // printf("in execute, action index = %d\n", state::blims::curr_action_index);
   blims::MVP::curr_action_index++;
@@ -116,6 +113,24 @@ void BLIMS::pwm_setup()
   pwm_set_clkdiv_int_frac(slice_num, divider_int, divider_frac);
   pwm_set_wrap(slice_num, wrap_cycle_count);
   pwm_set_enabled(slice_num, true);
+}
+
+void data_print_test()
+{
+  printf("Latitude: %f\n", blims::flight::latitude);
+  printf("Longitude: %f\n", blims::flight::longitude);
+  printf("Speed: %f\n", blims::flight::speed);
+  printf("Track_angle: %f\n", blims::flight::track_angle);
+  printf("Heading: %f\n", blims::flight::heading);
+}
+
+void update_state_vars(BLIMSDataIn data_in)
+{
+  blims::flight::latitude = data_in.latitude;
+  blims::flight::longitude = data_in.longitude;
+  blims::flight::speed = data_in.speed;
+  blims::flight::track_angle = data_in.track_angle;
+  blims::flight::heading = data_in.heading;
 }
 
 // This was in FSW main -> flight_mode.cpp
