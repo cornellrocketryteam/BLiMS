@@ -115,7 +115,7 @@ void BLIMS::pwm_setup()
   pwm_set_enabled(slice_num, true);
 }
 
-void data_print_test()
+void BLIMS::data_print_test()
 {
   printf("Latitude: %f\n", blims::flight::latitude);
   printf("Longitude: %f\n", blims::flight::longitude);
@@ -124,7 +124,7 @@ void data_print_test()
   printf("Heading: %f\n", blims::flight::heading);
 }
 
-void update_state_vars(BLIMSDataIn data_in)
+void BLIMS::update_state_vars(BLIMSDataIn data_in)
 {
   blims::flight::latitude = data_in.latitude;
   blims::flight::longitude = data_in.longitude;
