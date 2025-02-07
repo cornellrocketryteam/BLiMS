@@ -117,20 +117,25 @@ void BLIMS::pwm_setup()
 
 void BLIMS::data_print_test()
 {
-  printf("Latitude: %f\n", blims::flight::latitude);
-  printf("Longitude: %f\n", blims::flight::longitude);
-  printf("Speed: %f\n", blims::flight::speed);
-  printf("Track_angle: %f\n", blims::flight::track_angle);
-  printf("Heading: %f\n", blims::flight::heading);
+  printf("Latitude: %f\n", blims::flight::lat);
+  printf("Longitude: %f\n", blims::flight::lon);
+  printf("North Velocity: %f\n", blims::flight::velN);
 }
 
 void BLIMS::update_state_vars(BLIMSDataIn data_in)
 {
-  blims::flight::latitude = data_in.latitude;
-  blims::flight::longitude = data_in.longitude;
-  blims::flight::speed = data_in.speed;
-  blims::flight::track_angle = data_in.track_angle;
-  blims::flight::heading = data_in.heading;
+
+  blims::flight::lon = data_in.lon;
+  blims::flight::lat = data_in.lat;
+  blims::flight::hAcc = data_in.hAcc;
+  blims::flight::vAcc = data_in.vAcc;
+  blims::flight::velN = data_in.velN;
+  blims::flight::velE = data_in.velE;
+  blims::flight::velD = data_in.velD;
+  blims::flight::gSpeed = data_in.gSpeed;
+  blims::flight::headMot = data_in.headMot;
+  blims::flight::sAcc = data_in.sAcc;
+  blims::flight::headAcc = data_in.headAcc;
 }
 
 // This was in FSW main -> flight_mode.cpp

@@ -16,11 +16,17 @@ namespace blims
     float motor_position = 0;
     BLIMSDataOut data_out = {
         .motor_position = 0};
-    float longitude = 0;
-    float latitude = 0;
-    float speed = 0;
-    float track_angle = 0;
-    float heading = 0;
+    int32_t lon = 0;
+    int32_t lat = 0;
+    uint32_t hAcc = 0;
+    uint32_t vAcc = 0;
+    int32_t velN = 0;
+    int32_t velE = 0;
+    int32_t velD = 0;
+    int32_t gSpeed = 0;
+    int32_t headMot = 0;
+    uint32_t sAcc = 0;
+    uint32_t headAcc = 0;
   }
   namespace MVP
   {
@@ -31,16 +37,16 @@ namespace blims
     // [_,[0,_]] index = % of motor's possible turning amount to turn (set in ODrive UI)
     // [_,[_,1]] index = length of pause after each turn
     Action action_arr[10] = {
-        {0.6f, turn_hold_threshold},
+        {0.625f, turn_hold_threshold},
         {0.5f, neutral_hold_threshold},
-        {0.3f, turn_hold_threshold},
+        {0.375f, turn_hold_threshold},
         {0.5f, neutral_hold_threshold},
-        {0.8f, turn_hold_threshold},
+        {0.6875f, turn_hold_threshold},
         {0.5f, neutral_hold_threshold},
-        {0.1f, turn_hold_threshold},
+        {0.375f, turn_hold_threshold},
         {0.5f, neutral_hold_threshold},
-        {1.0f, turn_hold_threshold},
-        {0.5f, neutral_hold_threshold},
+        {0.75f, turn_hold_threshold},
+        {0.917f, 5000},
     };
   }
 }

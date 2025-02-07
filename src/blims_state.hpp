@@ -12,11 +12,17 @@ enum BLIMSMode
 
 struct BLIMSDataIn
 {
-  float longitude;
-  float latitude;
-  float speed;       // speed over the ground in knots
-  float track_angle; // degrees
-  float heading;     // degrees
+  int32_t lon;
+  int32_t lat;
+  uint32_t hAcc;
+  uint32_t vAcc;
+  int32_t velN;
+  int32_t velE;
+  int32_t velD;
+  int32_t gSpeed;
+  int32_t headMot;
+  uint32_t sAcc;
+  uint32_t headAcc;
 };
 struct BLIMSDataOut
 {
@@ -35,11 +41,17 @@ namespace blims
     extern BLIMSMode flight_mode;
     extern float motor_position;
     extern BLIMSDataOut data_out;
-    extern float longitude;
-    extern float latitude;
-    extern float speed;       // speed over the ground in knots
-    extern float track_angle; // degrees
-    extern float heading;     // degrees
+    extern int32_t lon;
+    extern int32_t lat;
+    extern uint32_t hAcc;
+    extern uint32_t vAcc;
+    extern int32_t velN;
+    extern int32_t velE;
+    extern int32_t velD;
+    extern int32_t gSpeed;
+    extern int32_t headMot;
+    extern uint32_t sAcc;
+    extern uint32_t headAcc;
   }
   namespace MVP
   {
