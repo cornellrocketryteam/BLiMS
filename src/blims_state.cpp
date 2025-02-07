@@ -37,7 +37,7 @@ namespace blims
     // [_,[0,_]] index = % of motor's possible turning amount to turn (set in ODrive UI)
     // [_,[_,1]] index = length of pause after each turn
     Action action_arr[11] = {
-        {1.0f, turn_hold_threshold},
+        {0.625, turn_hold_threshold},
         {0.5f, neutral_hold_threshold},
         {0.375f, turn_hold_threshold},
         {0.5f, neutral_hold_threshold},
@@ -47,6 +47,6 @@ namespace blims
         {0.5f, neutral_hold_threshold},
         {0.75f, turn_hold_threshold},
         {0.917f, 5000},
-        {0.0f, 5000}};
+        {1.0f, 5000}};
   }
 }
