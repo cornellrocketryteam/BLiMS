@@ -45,8 +45,8 @@ namespace blims
         {0.5f, neutral_hold_threshold},
         {0.25f, turn_hold_threshold},
         {0.5f, neutral_hold_threshold},
-        {0.1f, turn_hold_threshold},
-        {1.334f, 5000},
+        {1.0f, turn_hold_threshold},
+        {1.66f, 5000},
         {0.5f, 5000}};
 
     // Action action_arr[11] = {
