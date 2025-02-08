@@ -57,7 +57,7 @@ namespace blims
   {
     extern int32_t curr_action_duration;
     extern int curr_action_index;
-    extern Action action_arr[11];
+    extern Action action_arr[10];
   };
 } // namespace name
 
