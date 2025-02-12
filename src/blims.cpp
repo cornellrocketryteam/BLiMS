@@ -18,7 +18,7 @@ void BLIMS::begin(BLIMSMode mode)
   blims::flight::flight_mode = mode;
 }
 
-BLIMSDataOut BLIMS::execute(BLIMSDataIn data_in)
+BLIMSDataOut BLIMS::execute(BLIMSDataIn *data_in)
 {
   printf("Execute BLiMS - Data In:\n");
   // update state vars with FSW data
@@ -123,20 +123,19 @@ void BLIMS::data_print_test()
   printf("Motor Position: %f\n", blims::flight::data_out.motor_position);
 }
 
-void BLIMS::update_state_vars(BLIMSDataIn data_in)
+void BLIMS::update_state_vars(BLIMSDataIn *data_in)
 {
-
-  blims::flight::lon = data_in.lon;
-  blims::flight::lat = data_in.lat;
-  blims::flight::hAcc = data_in.hAcc;
-  blims::flight::vAcc = data_in.vAcc;
-  blims::flight::velN = data_in.velN;
-  blims::flight::velE = data_in.velE;
-  blims::flight::velD = data_in.velD;
-  blims::flight::gSpeed = data_in.gSpeed;
-  blims::flight::headMot = data_in.headMot;
-  blims::flight::sAcc = data_in.sAcc;
-  blims::flight::headAcc = data_in.headAcc;
+  blims::flight::lon = data_in->lon;
+  blims::flight::lat = data_in->lat;
+  blims::flight::hAcc = data_in->hAcc;
+  blims::flight::vAcc = data_in->vAcc;
+  blims::flight::velN = data_in->velN;
+  blims::flight::velE = data_in->velE;
+  blims::flight::velD = data_in->velD;
+  blims::flight::gSpeed = data_in->gSpeed;
+  blims::flight::headMot = data_in->headMot;
+  blims::flight::sAcc = data_in->sAcc;
+  blims::flight::headAcc = data_in->headAcc;
 }
 
 // This was in FSW main -> flight_mode.cpp

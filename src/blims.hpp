@@ -17,7 +17,7 @@ class BLIMS
 public:
   // associated with blims object because not static
   void begin(BLIMSMode mode);
-  BLIMSDataOut execute(BLIMSDataIn data_in);
+  BLIMSDataOut execute(BLIMSDataIn *data_in);
 
 private:
   // configures the pwm signal
@@ -25,7 +25,7 @@ private:
   // print test
   void data_print_test();
   // update state vars with FSW data
-  void update_state_vars(BLIMSDataIn data_in);
+  void update_state_vars(BLIMSDataIn *data_in);
   // sets position of motor on a 0-1 scale
   static void set_motor_position(float position);
   static int64_t execute_MVP(alarm_id_t id, void *user_data);
