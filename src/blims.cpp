@@ -120,7 +120,7 @@ void BLIMS::data_print_test()
   printf("Latitude: %d\n", blims::flight::lat);
   printf("Longitude: %d\n", blims::flight::lon);
   printf("North Velocity: %d\n", blims::flight::velN);
-  printf("Motor Position: %d\n", blims::flight::data_out.motor_position);
+  printf("Motor Position: %f\n", blims::flight::data_out.motor_position);
 }
 
 void BLIMS::update_state_vars(BLIMSDataIn *data_in)
