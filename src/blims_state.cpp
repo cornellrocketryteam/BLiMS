@@ -36,29 +36,29 @@ namespace blims
     // action_arr is effectively a cyle of instructions.
     // [_,[0,_]] index = % of motor's possible turning amount to turn (set in ODrive UI)
     // [_,[_,1]] index = length of pause after each turn
-    Action action_arr[10] = {
-        {0.75f, turn_hold_threshold},
-        {0.5f, neutral_hold_threshold},
-        {0.25f, turn_hold_threshold},
-        {0.5f, neutral_hold_threshold},
-        {0.875f, turn_hold_threshold},
-        {0.5f, neutral_hold_threshold},
-        {0.25f, turn_hold_threshold},
-        {0.5f, neutral_hold_threshold},
-        {1.0f, turn_hold_threshold},
-        {0.5f, 5000}};
+    // Action action_arr[10] = {
+    //     {0.75f, turn_hold_threshold},
+    //     {0.5f, neutral_hold_threshold},
+    //     {0.25f, turn_hold_threshold},
+    //     {0.5f, neutral_hold_threshold},
+    //     {0.875f, turn_hold_threshold},
+    //     {0.5f, neutral_hold_threshold},
+    //     {0.25f, turn_hold_threshold},
+    //     {0.5f, neutral_hold_threshold},
+    //     {1.0f, turn_hold_threshold},
+    //     {0.5f, 5000}};
 
-    // Action action_arr[11] = {
-    // {0.625f, turn_hold_threshold},
-    // {0.5f, neutral_hold_threshold},
-    // {0.375f, turn_hold_threshold},
-    // {0.5f, neutral_hold_threshold},
-    // {0.6875f, turn_hold_threshold},
-    // {0.5f, neutral_hold_threshold},
-    // {0.375f, turn_hold_threshold},
-    // {0.5f, neutral_hold_threshold},
-    // {0.75f, turn_hold_threshold},
-    // {0.917f, 5000},
-    // {0.5f, 5000}};
+    Action action_arr[11] = {
+        {0.625f, turn_hold_threshold},
+        {0.5f, neutral_hold_threshold},
+        {0.375f, turn_hold_threshold},
+        {0.5f, neutral_hold_threshold},
+        {0.6875f, turn_hold_threshold},
+        {0.5f, neutral_hold_threshold},
+        {0.375f, turn_hold_threshold},
+        {0.5f, neutral_hold_threshold},
+        {0.75f, turn_hold_threshold},
+        {0.917f, 5000},
+        {0.5f, 5000}};
   }
 }
