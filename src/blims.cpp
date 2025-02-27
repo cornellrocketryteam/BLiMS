@@ -63,7 +63,7 @@ int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data)
   // printf("in execute, action index = %d\n", state::blims::curr_action_index);
   blims::MVP::curr_action_index++;
 
-  if (blims::MVP::curr_action_index >= 10)
+  if (blims::MVP::curr_action_index >= 11)
   {
     blims::MVP::curr_action_index = 0;
   }
