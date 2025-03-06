@@ -66,6 +66,7 @@ namespace blims
     int32_t bearing = 0;
     int32_t magnitude = 0; // used for track with headMot
     int32_t integralError = 0;
+    int32_t angError = 0;
     int32_t prevError = 0;
     int32_t pid_P = 0;
     int32_t pid_I = 0;
