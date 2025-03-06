@@ -3,3 +3,5 @@
 
 # macOs -> specific to macOs
 **/.DS_Store
+# VS Code
+.vscode/
