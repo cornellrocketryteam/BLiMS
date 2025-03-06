@@ -20,7 +20,7 @@ void BLIMS::begin(BLIMSMode mode, uint8_t pin, int32_t target_lat, int32_t targe
   blims::flight::blims_motor_pin = pin;
   blims::LV::target_lat = target_lat;
   blims::LV::target_lon = target_lon;
-  BLIMS::blims_start = false;
+  blims_start = false;
 }
 
 BLIMSDataOut BLIMS::execute(BLIMSDataIn *data_in)
@@ -53,7 +53,7 @@ BLIMSDataOut BLIMS::execute(BLIMSDataIn *data_in)
       add_alarm_in_ms(initial_hold_threshold, BLIMS::init_timer, NULL, true);
       blims::flight::blims_init = true;
     }
-    if (BLIMS::blims_start == true)
+    if (blims_start == true)
     {
       BLIMS::execute_LV();
     }
@@ -65,7 +65,7 @@ BLIMSDataOut BLIMS::execute(BLIMSDataIn *data_in)
 
 int64_t BLIMS::init_timer(alarm_id_t id, void *user_data)
 {
-  BLIMS::blims_start = true;
+  blims_start = true;
   return 0;
 }
 
