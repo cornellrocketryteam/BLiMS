@@ -12,8 +12,6 @@
 #include "pico/stdlib.h"
 #include "cstdio"
 
-static bool blims_start;
-
 class BLIMS
 {
 public:
@@ -22,7 +20,7 @@ public:
   BLIMSDataOut execute(BLIMSDataIn *data_in);
 
 private:
-    // configures the pwm signal
+  // configures the pwm signal
   void pwm_setup();
   // print test
   void data_print_test();

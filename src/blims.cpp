@@ -12,6 +12,8 @@
 #include "hardware/timer.h"
 #include <math.h>
 
+static bool blims_start = false;
+
 void BLIMS::begin(BLIMSMode mode, uint8_t pin, int32_t target_lat, int32_t target_lon)
 {
   printf("Begin BLiMS");
@@ -20,7 +22,7 @@ void BLIMS::begin(BLIMSMode mode, uint8_t pin, int32_t target_lat, int32_t targe
   blims::flight::blims_motor_pin = pin;
   blims::LV::target_lat = target_lat;
   blims::LV::target_lon = target_lon;
-  blims_start = false;
+  // blims_start = false;
 }
 
 BLIMSDataOut BLIMS::execute(BLIMSDataIn *data_in)
@@ -188,6 +190,8 @@ void BLIMS::pwm_setup()
 
 void BLIMS::data_print_test()
 {
+  printf("blims_start:%d\n", blims_start);
+
   printf("GPS Print Statements\n");
   printf("Latitude: %d\n", blims::flight::gps_lat);
   printf("Longitude: %d\n", blims::flight::gps_lon);
