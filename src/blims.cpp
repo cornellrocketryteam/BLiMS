@@ -30,7 +30,6 @@ BLIMSDataOut BLIMS::execute(BLIMSDataIn *data_in)
   printf("Execute BLiMS - Data In:\n");
   // update state vars with FSW data
   update_state_gps_vars(data_in);
-  data_print_test();
 
   if (blims::flight::flight_mode == STANDBY)
   {
@@ -58,6 +57,7 @@ BLIMSDataOut BLIMS::execute(BLIMSDataIn *data_in)
     if (blims_start == true)
     {
       BLIMS::execute_LV();
+      data_print_test();
     }
   }
 
@@ -82,6 +82,7 @@ void BLIMS::execute_LV()
   blims::LV::bearing = BLIMS::calculate_bearing();
   blims::LV::angError = BLIMS::calculate_angError();
   blims::flight::currTime = to_ms_since_boot(get_absolute_time());
+  printf("currTime: %d\n", blims::flight::currTime);
   blims::flight::timePassed = BLIMS::calculate_timePassed();
 
   // P term
