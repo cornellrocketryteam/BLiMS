@@ -207,10 +207,10 @@ void BLIMS::data_print_test()
   printf("deltaLon: %d\n", blims::LV::deltaLon);
   printf("bearing: %d\n", blims::LV::bearing);
   printf("angError: %d\n", blims::LV::angError);
-  printf("currTime: %d\n", blims::flight::currTime);
+  // printf("currTime: %d\n", blims::flight::currTime);
   printf("timePassed: %d\n", blims::flight::timePassed);
   printf("prevError: %d\n", blims::LV::prevError);
-  printf("prevTime: %d\n", blims::flight::prevTime);
+  // printf("prevTime: %d\n", blims::flight::prevTime);
 
   printf("\nController Print Statements\n");
   printf("pid_P: %d\n", blims::LV::pid_P);

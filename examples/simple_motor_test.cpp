@@ -3,6 +3,7 @@
 #include "hardware/clocks.h"
 #include "hardware/pwm.h"
 #include "pico/stdlib.h"
+#include <cstdio>
 
 #define PWM_PIN 28 // GPIO pin to output PWM signal
 // want wrap to be as large as possible, increases the amount of steps so that we have as much control as possible
@@ -62,15 +63,18 @@ int main()
 
   while (1)
   {
+    printf("start sequence");
 
     set_motor_position(PWM_PIN, 0.0);
     sleep_ms(3000);
+    printf("finish turn 1");
 
     set_motor_position(PWM_PIN, 0.5);
     sleep_ms(3000);
 
     set_motor_position(PWM_PIN, 1.0);
     sleep_ms(3000);
+    printf("finish sequence");
   }
 
   return 0;
