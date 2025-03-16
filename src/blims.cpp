@@ -17,11 +17,12 @@ static bool blims_start = false;
 void BLIMS::begin(BLIMSMode mode, uint8_t pin, int32_t target_lat, int32_t target_lon)
 {
   printf("Begin BLiMS");
-  pwm_setup();
+
   blims::flight::flight_mode = mode;
   blims::flight::blims_motor_pin = pin;
   blims::LV::target_lat = target_lat;
   blims::LV::target_lon = target_lon;
+  pwm_setup();
   // blims_start = false;
 }
 
