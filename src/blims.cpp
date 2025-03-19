@@ -16,7 +16,6 @@ static bool blims_start = false;
 
 void BLIMS::begin(BLIMSMode mode, uint8_t pin, int32_t target_lat, int32_t target_lon)
 {
-  printf("Begin BLiMS");
 
   blims::flight::flight_mode = mode;
   blims::flight::blims_motor_pin = pin;
@@ -28,17 +27,15 @@ void BLIMS::begin(BLIMSMode mode, uint8_t pin, int32_t target_lat, int32_t targe
 
 BLIMSDataOut BLIMS::execute(BLIMSDataIn *data_in)
 {
-  printf("Execute BLiMS - Data In:\n");
   // update state vars with FSW data
   update_state_gps_vars(data_in);
 
   if (blims::flight::flight_mode == STANDBY)
   {
-    printf("Standby Mode");
   }
   else if (blims::flight::flight_mode == MVP_Flight)
   {
-    printf("MVP_Flight Mode");
+
     if (!blims::flight::blims_init)
     {
       blims::flight::blims_init = true;
@@ -47,7 +44,6 @@ BLIMSDataOut BLIMS::execute(BLIMSDataIn *data_in)
   }
   else if (blims::flight::flight_mode == LV)
   {
-    printf("LV");
     // add blims state var --> 20 second wait is over
     // static funcition --> sets var to true, if false, don't do anything, if true, call execute_LV
     if (!blims::flight::blims_init)
@@ -74,7 +70,6 @@ int64_t BLIMS::init_timer(alarm_id_t id, void *user_data)
 
 void BLIMS::execute_LV()
 {
-  printf("Execute LV\n");
   // Var Calculations
   blims::LV::LFP_lat = alpha * blims::flight::gps_lat + (1 - alpha) * blims::flight::gps_lat;
   blims::LV::LFP_lon = alpha * blims::flight::gps_lon + (1 - alpha) * blims::flight::gps_lon;
@@ -83,8 +78,7 @@ void BLIMS::execute_LV()
   blims::LV::bearing = BLIMS::calculate_bearing();
   blims::LV::angError = BLIMS::calculate_angError();
   blims::flight::currTime = to_ms_since_boot(get_absolute_time());
-  printf("prevTime: %d\n", blims::flight::prevTime);
-  printf("currTime: %d\n", blims::flight::currTime);
+
   blims::flight::timePassed = BLIMS::calculate_timePassed();
 
   // P term
@@ -155,7 +149,6 @@ int32_t BLIMS::calculate_angError()
 }
 void BLIMS::set_motor_position(float position)
 {
-  // printf("setting motor position to %f\n", position);
   uint slice_num = pwm_gpio_to_slice_num(blims::flight::blims_motor_pin);
   // Position should be between 0-1
   // Should map between -17 to 17 turns (configured in web UI)
@@ -193,6 +186,7 @@ void BLIMS::pwm_setup()
 
 void BLIMS::data_print_test()
 {
+#ifdef VERBOSE // set in FSW
   printf("blims_start:%d\n", blims_start);
 
   printf("GPS Print Statements\n");
@@ -218,6 +212,7 @@ void BLIMS::data_print_test()
   printf("pid_I: %d\n", blims::LV::pid_I);
   printf("pid_D: %d\n", blims::LV::pid_D);
   printf("controllerOutput: %d\n", blims::LV::controllerOutput);
+#endif
 }
 
 void BLIMS::update_state_gps_vars(BLIMSDataIn *data_in)
@@ -237,9 +232,7 @@ void BLIMS::update_state_gps_vars(BLIMSDataIn *data_in)
 
 int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data)
 {
-  printf("Execute MVP\n");
 
-  // printf("in execute, action index = %d\n", state::blims::curr_action_index);
   blims::MVP::curr_action_index++;
 
   if (blims::MVP::curr_action_index >= 11)
