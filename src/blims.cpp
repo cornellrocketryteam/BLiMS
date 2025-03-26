@@ -14,11 +14,12 @@
 
 static bool blims_start = false;
 
-void BLIMS::begin(BLIMSMode mode, uint8_t pin, int32_t target_lat, int32_t target_lon)
+void BLIMS::begin(BLIMSMode mode, uint8_t pwm_pin, uint8_t enable_pin, int32_t target_lat, int32_t target_lon)
 {
 
   blims::flight::flight_mode = mode;
-  blims::flight::blims_motor_pin = pin;
+  blims::flight::blims_pwm_pin = pwm_pin;
+  blims::flight::blims_enable_pin = enable_pin;
   blims::LV::target_lat = target_lat;
   blims::LV::target_lon = target_lon;
   pwm_setup();
@@ -149,7 +150,7 @@ int32_t BLIMS::calculate_angError()
 }
 void BLIMS::set_motor_position(float position)
 {
-  uint slice_num = pwm_gpio_to_slice_num(blims::flight::blims_motor_pin);
+  uint slice_num = pwm_gpio_to_slice_num(blims::flight::blims_pwm_pin);
   // Position should be between 0-1
   // Should map between -17 to 17 turns (configured in web UI)
 
@@ -157,7 +158,7 @@ void BLIMS::set_motor_position(float position)
   uint16_t five_percent_duty_cycle = wrap_cycle_count * 0.05;
   // ranges between 5% and 10% duty cycle; 3276 ~= 5% duty, 6552 ~= 10% duty
   uint16_t duty = (uint16_t)(five_percent_duty_cycle + position * five_percent_duty_cycle);
-  pwm_set_chan_level(slice_num, pwm_gpio_to_channel(blims::flight::blims_motor_pin), duty);
+  pwm_set_chan_level(slice_num, pwm_gpio_to_channel(blims::flight::blims_pwm_pin), duty);
   // update state of motor (what is the position at the current time)
   // state::blims::motor_position = position;
 
@@ -167,7 +168,7 @@ void BLIMS::set_motor_position(float position)
 void BLIMS::pwm_setup()
 {
   // Set up the PWM configuration
-  uint slice_num = pwm_gpio_to_slice_num(blims::flight::blims_motor_pin);
+  uint slice_num = pwm_gpio_to_slice_num(blims::flight::blims_pwm_pin);
 
   uint32_t clock = 125000000; // What our pico runs - set by the pico hardware itself
 
@@ -182,6 +183,11 @@ void BLIMS::pwm_setup()
   pwm_set_clkdiv_int_frac(slice_num, divider_int, divider_frac);
   pwm_set_wrap(slice_num, wrap_cycle_count);
   pwm_set_enabled(slice_num, true);
+
+  // TODO:
+  //  set enable pin
+  gpio_put(blims::flight::blims_enable_pin, 0); // Pulse LOW to reset error state
+  gpio_put(blims::flight::blims_enable_pin, 1); // Enable again
 }
 
 void BLIMS::data_print_test()

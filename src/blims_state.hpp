@@ -38,7 +38,8 @@ namespace blims
   // TODO: break up into smaller sections
   namespace flight
   {
-    extern float blims_motor_pin;
+    extern uint8_t blims_pwm_pin;
+    extern uint8_t blims_enable_pin;
     extern bool blims_init;
     extern BLIMSMode flight_mode;
     extern float motor_position;

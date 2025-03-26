@@ -11,7 +11,8 @@ namespace blims
 {
   namespace flight
   {
-    float blims_motor_pin = 26;
+    uint8_t blims_pwm_pin = 0;
+    uint8_t blims_enable_pin = 0;
     bool blims_init = false;
     BLIMSMode flight_mode = STANDBY;
     float motor_position = 0;
