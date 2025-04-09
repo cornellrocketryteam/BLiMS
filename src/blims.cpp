@@ -73,6 +73,7 @@ int64_t BLIMS::init_timer(alarm_id_t id, void *user_data)
 int64_t BLIMS::pwm_setup_timer(alarm_id_t id, void *user_data)
 {
   pwm_start = true;
+  gpio_put(blims::flight::blims_enable_pin, 1); // Enable again
   return 0;
 }
 
@@ -193,9 +194,8 @@ void BLIMS::pwm_setup()
 
   // TODO:
   //  set enable pin
-  gpio_put(blims::flight::blims_enable_pin, 0);              // Pulse LOW to reset error state
-  add_alarm_in_ms(2000, BLIMS::pwm_setup_timer, NULL, true); // hold for 2 seconds
-  gpio_put(blims::flight::blims_enable_pin, 1);              // Enable again
+  gpio_put(blims::flight::blims_enable_pin, 0);             // Pulse LOW to reset error state
+  add_alarm_in_ms(500, BLIMS::pwm_setup_timer, NULL, true); // hold for half a second
 }
 
 void BLIMS::data_print_test()
