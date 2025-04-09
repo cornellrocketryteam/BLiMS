@@ -13,6 +13,7 @@
 #include <math.h>
 
 static bool blims_start = false;
+static bool pwm_start = false;
 
 void BLIMS::begin(BLIMSMode mode, uint8_t pwm_pin, uint8_t enable_pin, int32_t target_lat, int32_t target_lon)
 {
@@ -66,6 +67,12 @@ BLIMSDataOut BLIMS::execute(BLIMSDataIn *data_in)
 int64_t BLIMS::init_timer(alarm_id_t id, void *user_data)
 {
   blims_start = true;
+  return 0;
+}
+
+int64_t BLIMS::pwm_setup_timer(alarm_id_t id, void *user_data)
+{
+  pwm_start = true;
   return 0;
 }
 
@@ -186,8 +193,9 @@ void BLIMS::pwm_setup()
 
   // TODO:
   //  set enable pin
-  gpio_put(blims::flight::blims_enable_pin, 0); // Pulse LOW to reset error state
-  gpio_put(blims::flight::blims_enable_pin, 1); // Enable again
+  gpio_put(blims::flight::blims_enable_pin, 0);              // Pulse LOW to reset error state
+  add_alarm_in_ms(2000, BLIMS::pwm_setup_timer, NULL, true); // hold for 2 seconds
+  gpio_put(blims::flight::blims_enable_pin, 1);              // Enable again
 }
 
 void BLIMS::data_print_test()

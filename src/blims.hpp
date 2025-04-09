@@ -16,7 +16,7 @@ class BLIMS
 {
 public:
   // associated with blims object because not static
-  void begin(BLIMSMode mode, uint8_t pin, int32_t target_lat = 0, int32_t target_lon = 0);
+  void begin(BLIMSMode mode, uint8_t pwm_pin, uint8_t enable_pin, int32_t target_lat = 0, int32_t target_lon = 0);
   BLIMSDataOut execute(BLIMSDataIn *data_in);
 
 private:
@@ -35,6 +35,8 @@ private:
   int32_t calculate_angError();
   int32_t calculate_timePassed();
   static int64_t init_timer(alarm_id_t id, void *user_data);
+
+  static int64_t pwm_setup_timer(alarm_id_t id, void *user_data);
 };
 
 #endif
