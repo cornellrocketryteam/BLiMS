@@ -283,7 +283,7 @@ void BLIMS::update_state_gps_vars(BLIMSDataIn *data_in)
   blims::flight::headAcc = data_in->headAcc;
 
   blims::flight::fixType = data_in->fixType;
-  blims::flight::gps_state = data_in->gps_state;
+  blims::LV::gps_state = data_in->gps_state;
 }
 
 int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data)
