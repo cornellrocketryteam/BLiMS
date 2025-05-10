@@ -23,12 +23,14 @@ struct BLIMSDataIn
   int32_t headMot;
   uint32_t sAcc;
   uint32_t headAcc;
-  ///
-  uint32_t fixType;
+  uint8_t fixType;
+  bool gps_state;
 };
 struct BLIMSDataOut
 {
   float motor_position;
+  float pid_P;
+  float pid_I;
 };
 struct Action
 {
@@ -61,6 +63,7 @@ namespace blims
     extern uint32_t prevTime;
     extern uint32_t timePassed;
     extern uint32_t fixType;
+    extern bool gps_state;
 
   }
   namespace MVP
@@ -73,19 +76,19 @@ namespace blims
   {
     extern int32_t target_lat; // set in begin
     extern int32_t target_lon; // set in begin
-    extern int32_t LFP_lat;    // GPS value
-    extern int32_t LFP_lon;    // GPS value
-    extern int32_t deltaLat;
-    extern int32_t deltaLon;
-    extern int32_t bearing;
-    extern int32_t magnitude;     // used for track with headMot
-    extern int32_t integralError; // could probably get rid of
-    extern int32_t angError;
-    extern int32_t prevError;
-    extern int32_t pid_P;
-    extern int32_t pid_I;
+    // extern int32_t LFP_lat;    // GPS value
+    // extern int32_t LFP_lon;    // GPS value
+    // extern int32_t deltaLat;
+    // extern int32_t deltaLon;
+    extern float bearing;
+    // extern int32_t magnitude;     // used for track with headMot
+    extern float integralError; // could probably get rid of
+    // extern int32_t angError;
+    extern float prevError;
+    extern float pid_P;
+    extern float pid_I;
     // extern int32_t pid_D;
-    extern int32_t controllerOutput;
+    // extern int32_t controllerOutput;
     extern bool gps_state;
     extern float error_integral;
 

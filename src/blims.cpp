@@ -91,7 +91,7 @@ void BLIMS::execute_LV()
   if (blims::LV::gps_state)
   { // if gps status from FSW good then run
 
-    if (blims::flight::fixType >= 3)
+    if (blims::flight::fixType == 4 || blims::flight::fixType == 3 || blims::flight::fixType == 2)
     {                                                                  // only run the logic if we have satellite lock and are moving fast enough to have a clear direction. More relevant to car testing than actual flight but do make sure that the code doesn't break if the expected data isn't returned for a loop or two
       float dt_ms = blims::flight::currTime - blims::flight::prevTime; // calculate how long since last loop (delta time)
       blims::flight::prevTime = blims::flight::currTime;               // reset last time for the next loop
@@ -145,21 +145,20 @@ int32_t BLIMS::calculate_timePassed()
   return timePassed;
 }
 
-int32_t BLIMS::calculate_pid_I()
-{
-  blims::LV::integralError += blims::LV::angError * blims::flight::timePassed;
-  if (blims::LV::integralError > integral_max)
-  {
-    blims::LV::integralError = integral_max;
-  }
-  else if (blims::LV::integralError < -integral_max)
-  {
-    blims::LV::integralError = -integral_max;
-  }
-  return Ki * blims::LV::integralError;
-}
+// int32_t BLIMS::calculate_pid_I()
+// {
+//   blims::LV::integralError += blims::LV::angError * blims::flight::timePassed;
+//   if (blims::LV::integralError > integral_max)
+//   {
+//     blims::LV::integralError = integral_max;
+//   }
+//   else if (blims::LV::integralError < -integral_max)
+//   {
+//     blims::LV::integralError = -integral_max;
+//   }
+//   return Ki * blims::LV::integralError;
+// }
 
-// TODO: how do i not return something here
 void BLIMS::calculate_bearing()
 {
   // convert all to radians
@@ -179,22 +178,21 @@ void BLIMS::calculate_bearing()
   blims::LV::bearing = bearing;
 }
 
-int32_t BLIMS::calculate_angError()
-{
-  ////TODO: MAKE SURE headMot IS WHAT YOU WANT
-  int32_t angError = blims::flight::headMot - blims::LV::bearing;
+// int32_t BLIMS::calculate_angError()
+// {
+//   int32_t angError = blims::flight::headMot - blims::LV::bearing;
 
-  // Normalize error to be within [-180, 180]. Want to take the shorter path
-  if (angError > 180)
-  {
-    angError -= 360;
-  }
-  else if (angError < -180)
-  {
-    angError += 360;
-  }
-  return angError;
-}
+//   // Normalize error to be within [-180, 180]. Want to take the shorter path
+//   if (angError > 180)
+//   {
+//     angError -= 360;
+//   }
+//   else if (angError < -180)
+//   {
+//     angError += 360;
+//   }
+//   return angError;
+// }
 
 void BLIMS::set_motor_position(float position)
 {
@@ -210,6 +208,8 @@ void BLIMS::set_motor_position(float position)
   // update state of motor (what is the position at the current time)
   // state::blims::motor_position = position;
   blims::flight::data_out.motor_position = position;
+  blims::flight::data_out.pid_I = blims::LV::pid_I;
+  blims::flight::data_out.pid_P = blims::LV::pid_P;
 }
 
 void BLIMS::pwm_setup()
@@ -283,6 +283,7 @@ void BLIMS::update_state_gps_vars(BLIMSDataIn *data_in)
   blims::flight::headAcc = data_in->headAcc;
 
   blims::flight::fixType = data_in->fixType;
+  blims::flight::gps_state = data_in->gps_state;
 }
 
 int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data)
