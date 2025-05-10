@@ -239,8 +239,8 @@ void BLIMS::data_print_test()
   printf("\nLV Calculation Vars Print Statements\n");
   printf("bearing: %d\n", blims::LV::bearing);
   // printf("currTime: %d\n", blims::flight::currTime);
-  printf("timePassed: %d\n", blims::flight::timePassed);
-  printf("prevError: %d\n", blims::LV::prevError);
+  // printf("timePassed: %d\n", blims::flight::timePassed);
+  // printf("prevError: %d\n", blims::LV::prevError);
   // printf("prevTime: %d\n", blims::flight::prevTime);
 
   printf("\nController Print Statements\n");
@@ -252,10 +252,10 @@ void BLIMS::data_print_test()
 void BLIMS::update_state_gps_vars(BLIMSDataIn *data_in)
 {
   // how can I do this better
-  blims::flight::gps_lon = data_in->lon;
-  blims::flight::gps_lat = data_in->lat;
-  blims::flight::gps_lon = blims::flight::gps_lon * 1e-7f;
-  blims::flight::gps_lat = blims::flight::gps_lat * 1e-7f;
+  blims::flight::gps_lon = data_in->lon * 1e-7f;
+  blims::flight::gps_lat = data_in->lat * 1e-7f;
+  // blims::flight::gps_lon = blims::flight::gps_lon * 1e-7f;
+  // blims::flight::gps_lat = blims::flight::gps_lat * 1e-7f;
 
   blims::flight::hAcc = data_in->hAcc;
   blims::flight::vAcc = data_in->vAcc;

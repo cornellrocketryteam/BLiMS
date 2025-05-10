@@ -72,8 +72,8 @@ namespace blims
   }
   namespace LV
   {
-    extern int32_t target_lat; // set in begin
-    extern int32_t target_lon; // set in begin
+    extern float target_lat; // set in begin
+    extern float target_lon; // set in begin
     // extern int32_t LFP_lat;    // GPS value
     // extern int32_t LFP_lon;    // GPS value
     // extern int32_t deltaLat;
