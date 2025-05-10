@@ -37,6 +37,8 @@ float compute_heading_error(float target, float current)
 }
 BLIMSDataOut BLIMS::execute(BLIMSDataIn *data_in)
 {
+  printf("IN BLIMS EXECUTE: %d\n", data_in->lat);
+
   // update state vars with FSW data
   update_state_gps_vars(data_in);
 
@@ -254,6 +256,8 @@ void BLIMS::update_state_gps_vars(BLIMSDataIn *data_in)
   // how can I do this better
   blims::flight::gps_lon = data_in->lon * 1e-7f;
   blims::flight::gps_lat = data_in->lat * 1e-7f;
+  printf("IN UPDATE state: %f\n", blims::flight::gps_lat);
+
   // blims::flight::gps_lon = blims::flight::gps_lon * 1e-7f;
   // blims::flight::gps_lat = blims::flight::gps_lat * 1e-7f;
 
