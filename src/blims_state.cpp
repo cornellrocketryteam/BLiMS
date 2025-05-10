@@ -18,8 +18,8 @@ namespace blims
     float motor_position = 0;
     BLIMSDataOut data_out = {
         .motor_position = 0};
-    int32_t gps_lon = 0;
-    int32_t gps_lat = 0;
+    float gps_lon = 0;
+    float gps_lat = 0;
     uint32_t hAcc = 0;
     uint32_t vAcc = 0;
     int32_t velN = 0;
