@@ -63,8 +63,6 @@ namespace blims
     extern uint32_t prevTime;
     extern uint32_t timePassed;
     extern uint32_t fixType;
-    extern bool gps_state;
-
   }
   namespace MVP
   {
