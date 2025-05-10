@@ -234,16 +234,10 @@ void BLIMS::data_print_test()
   printf("GPS Print Statements\n");
   printf("Latitude: %d\n", blims::flight::gps_lat);
   printf("Longitude: %d\n", blims::flight::gps_lon);
-  printf("North Velocity: %d\n", blims::flight::velN);
   printf("Motor Position: %f\n", blims::flight::data_out.motor_position);
 
   printf("\nLV Calculation Vars Print Statements\n");
-  printf("LFP_lat: %d\n", blims::LV::LFP_lat);
-  printf("LFP_lon: %d\n", blims::LV::LFP_lon);
-  printf("deltaLat: %d\n", blims::LV::deltaLat);
-  printf("deltaLon: %d\n", blims::LV::deltaLon);
   printf("bearing: %d\n", blims::LV::bearing);
-  printf("angError: %d\n", blims::LV::angError);
   // printf("currTime: %d\n", blims::flight::currTime);
   printf("timePassed: %d\n", blims::flight::timePassed);
   printf("prevError: %d\n", blims::LV::prevError);
@@ -252,8 +246,6 @@ void BLIMS::data_print_test()
   printf("\nController Print Statements\n");
   printf("pid_P: %d\n", blims::LV::pid_P);
   printf("pid_I: %d\n", blims::LV::pid_I);
-  printf("pid_D: %d\n", blims::LV::pid_D);
-  printf("controllerOutput: %d\n", blims::LV::controllerOutput);
 #endif
 }
 
