@@ -1,7 +1,8 @@
 #ifndef BLIMS_CONSTANTS_HPP
 #define BLIMS_CONSTANTS_HPP
 #include <cstdint>
-#include <math.h>
+
+#define M_PI 3.14159265358979323846264338327950288
 
 constexpr float brake_alt = 10; // To be updated for when we want BLiMS to brake
 constexpr uint32_t initial_hold_threshold = 10000;
