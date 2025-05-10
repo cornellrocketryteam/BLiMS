@@ -48,8 +48,8 @@ namespace blims
     extern BLIMSMode flight_mode;
     extern float motor_position;
     extern BLIMSDataOut data_out;
-    extern int32_t gps_lon;
-    extern int32_t gps_lat;
+    extern float gps_lon;
+    extern float gps_lat;
     extern uint32_t hAcc;
     extern uint32_t vAcc;
     extern int32_t velN;
