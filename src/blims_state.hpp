@@ -23,6 +23,8 @@ struct BLIMSDataIn
   int32_t headMot;
   uint32_t sAcc;
   uint32_t headAcc;
+  ///
+  uint32_t fixType;
 };
 struct BLIMSDataOut
 {
@@ -58,6 +60,7 @@ namespace blims
     extern uint32_t currTime;
     extern uint32_t prevTime;
     extern uint32_t timePassed;
+    extern uint32_t fixType;
 
   }
   namespace MVP
@@ -81,8 +84,10 @@ namespace blims
     extern int32_t prevError;
     extern int32_t pid_P;
     extern int32_t pid_I;
-    extern int32_t pid_D;
+    // extern int32_t pid_D;
     extern int32_t controllerOutput;
+    extern bool gps_state;
+    extern float error_integral;
 
   };
 } // namespace name

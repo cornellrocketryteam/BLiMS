@@ -31,7 +31,7 @@ private:
   static int64_t execute_MVP(alarm_id_t id, void *user_data);
   void execute_LV();
   int32_t calculate_pid_I();
-  int32_t calculate_bearing();
+  void calculate_bearing();
   int32_t calculate_angError();
   int32_t calculate_timePassed();
   static int64_t init_timer(alarm_id_t id, void *user_data);

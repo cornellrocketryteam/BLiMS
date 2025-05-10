@@ -26,7 +26,15 @@ void BLIMS::begin(BLIMSMode mode, uint8_t pwm_pin, uint8_t enable_pin, int32_t t
   pwm_setup();
   // blims_start = false;
 }
-
+float compute_heading_error(float target, float current)
+{
+  float error = target - current;
+  if (error > 180)
+    error -= 360; // Wrap error to be within 180, -180. Want to always take the shortest turn to the target
+  if (error < -180)
+    error += 360;
+  return error;
+}
 BLIMSDataOut BLIMS::execute(BLIMSDataIn *data_in)
 {
   // update state vars with FSW data
@@ -79,29 +87,51 @@ int64_t BLIMS::pwm_setup_timer(alarm_id_t id, void *user_data)
 
 void BLIMS::execute_LV()
 {
-  // Var Calculations
-  blims::LV::LFP_lat = alpha * blims::flight::gps_lat + (1 - alpha) * blims::flight::gps_lat;
-  blims::LV::LFP_lon = alpha * blims::flight::gps_lon + (1 - alpha) * blims::flight::gps_lon;
-  blims::LV::deltaLat = blims::LV::target_lat - blims::LV::LFP_lat;
-  blims::LV::deltaLon = blims::LV::target_lon - blims::LV::LFP_lon;
-  blims::LV::bearing = BLIMS::calculate_bearing();
-  blims::LV::angError = BLIMS::calculate_angError();
-  blims::flight::currTime = to_ms_since_boot(get_absolute_time());
+  // TODO: how to set to true in FSW?
+  if (blims::LV::gps_state)
+  { // if gps status from FSW good then run
 
-  blims::flight::timePassed = BLIMS::calculate_timePassed();
+    if (blims::flight::fixType >= 3)
+    {                                                                  // only run the logic if we have satellite lock and are moving fast enough to have a clear direction. More relevant to car testing than actual flight but do make sure that the code doesn't break if the expected data isn't returned for a loop or two
+      float dt_ms = blims::flight::currTime - blims::flight::prevTime; // calculate how long since last loop (delta time)
+      blims::flight::prevTime = blims::flight::currTime;               // reset last time for the next loop
+      if (dt_ms <= 0 || dt_ms > 1000)
+        dt_ms = 100;              // cap to prevent large jumps
+      float dt = dt_ms / 1000.0f; // convert to seconds
 
-  // P term
-  blims::LV::pid_P = Kp * blims::LV::angError;
-  // I term
-  blims::LV::pid_I = BLIMS::calculate_pid_I();
-  // D term
-  blims::LV::pid_D = Kd * ((blims::LV::angError - blims::LV::prevError) / blims::flight::timePassed);
-  // Caluculate output
-  blims::LV::controllerOutput = blims::LV::pid_P + blims::LV::pid_I + blims::LV::pid_D;
-  BLIMS::set_motor_position(blims::LV::controllerOutput);
+      BLIMS::calculate_bearing();
+      float error = compute_heading_error(blims::LV::bearing, blims::flight::headMot);
 
-  blims::LV::prevError = blims::LV::angError;
-  blims::flight::prevTime = blims::flight::currTime;
+      blims::LV::error_integral += error * dt; // integral = area under curve. This is the discritized version of that
+
+      float limit = 0.5f / Ki; // because error_integral gets multiplied by Ki later, this calculation makes sure that the clamping limits on the I term are indeed 0.5
+      if (blims::LV::error_integral > limit)
+        blims::LV::error_integral = limit; // clamp term to prevent integral windup
+      if (blims::LV::error_integral < -limit)
+        blims::LV::error_integral = -limit;
+
+      // calculate control terms
+      blims::LV::pid_P = -1 * Kp * error;
+      blims::LV::pid_I = -1 * Ki * blims::LV::error_integral;
+
+      float correction = blims::LV::pid_P + blims::LV::pid_I;
+
+      // control input is relative to 0.5 instead of 0, because neutral motor position is 0.5
+      float position = 0.5f + correction;
+      if (position < 0.0f)
+        position = 0.0f;
+      if (position > 1.0f)
+        position = 1.0f;
+
+      set_motor_position(position);
+    }
+    else
+    {
+      set_motor_position(0.5f); // set to neutral if no data
+    }
+  }
+  // TODO
+  sleep_ms(100); // loop runs at 10Hz
 }
 
 int32_t BLIMS::calculate_timePassed()
@@ -129,15 +159,24 @@ int32_t BLIMS::calculate_pid_I()
   return Ki * blims::LV::integralError;
 }
 
-int32_t BLIMS::calculate_bearing()
+// TODO: how do i not return something here
+void BLIMS::calculate_bearing()
 {
-  int32_t bearing = atan2(blims::LV::deltaLon, blims::LV::deltaLat) * 180 / M_PI;
+  // convert all to radians
+  blims::flight::gps_lat *= deg_to_rad;
+  blims::flight::gps_lon *= deg_to_rad;
+  blims::LV::target_lat *= deg_to_rad;
+  blims::LV::target_lon *= deg_to_rad;
 
-  if (blims::LV::bearing < 0)
+  float d_lon = blims::LV::target_lon - blims::flight::gps_lon;
+  float d_lat = blims::LV::target_lat - blims::flight::gps_lat;
+  float bearing = atan2(d_lat, d_lon) * rad_to_deg; // compute angle, then convert back to degrees
+
+  if (bearing < 0)
   {
-    blims::LV::bearing += 360;
-  }
-  return bearing;
+    bearing += 360.0f;
+  } // atan2 is in range [-180,180). We want 0,360 for logic and plotting
+  blims::LV::bearing = bearing;
 }
 
 int32_t BLIMS::calculate_angError()
@@ -156,6 +195,7 @@ int32_t BLIMS::calculate_angError()
   }
   return angError;
 }
+
 void BLIMS::set_motor_position(float position)
 {
   uint slice_num = pwm_gpio_to_slice_num(blims::flight::blims_pwm_pin);
@@ -169,33 +209,21 @@ void BLIMS::set_motor_position(float position)
   pwm_set_chan_level(slice_num, pwm_gpio_to_channel(blims::flight::blims_pwm_pin), duty);
   // update state of motor (what is the position at the current time)
   // state::blims::motor_position = position;
-
   blims::flight::data_out.motor_position = position;
 }
 
 void BLIMS::pwm_setup()
 {
-  // Set up the PWM configuration
+  gpio_set_function(blims::flight::blims_pwm_pin, GPIO_FUNC_PWM);
   uint slice_num = pwm_gpio_to_slice_num(blims::flight::blims_pwm_pin);
+  gpio_init(blims::flight::blims_enable_pin);
+  gpio_set_dir(blims::flight::blims_enable_pin, GPIO_OUT);
 
-  uint32_t clock = 125000000; // What our pico runs - set by the pico hardware itself
-
-  uint32_t pwm_freq = 50; // desired pwm frequency Hz - what we want to achieve
-
-  uint32_t divider_int = clock / pwm_freq / wrap_cycle_count; // div is important to get the frequency we want as we lose float info here
-
-  uint32_t divider_frac = (clock % (pwm_freq * wrap_cycle_count)) * 16 / (pwm_freq * wrap_cycle_count); // gives us the fractional component of the divider
-  // Clock divider: slows down pwm to get a certain amount of Hz
-  // slice num - depends on what pin we're at, we set pin, pin has set slice num
-  // integer divider - going to be 38
-  pwm_set_clkdiv_int_frac(slice_num, divider_int, divider_frac);
+  float divider = 125000000.0f / (50 * wrap_cycle_count);
+  pwm_set_clkdiv(slice_num, divider);
   pwm_set_wrap(slice_num, wrap_cycle_count);
   pwm_set_enabled(slice_num, true);
-
-  // TODO:
-  //  set enable pin
-  gpio_put(blims::flight::blims_enable_pin, 0);             // Pulse LOW to reset error state
-  add_alarm_in_ms(500, BLIMS::pwm_setup_timer, NULL, true); // hold for half a second
+  gpio_put(blims::flight::blims_enable_pin, 1); // pull enable pin high to clear errors and put motor in the right state
 }
 
 void BLIMS::data_print_test()
@@ -231,17 +259,30 @@ void BLIMS::data_print_test()
 
 void BLIMS::update_state_gps_vars(BLIMSDataIn *data_in)
 {
+  // how can I do this better
   blims::flight::gps_lon = data_in->lon;
   blims::flight::gps_lat = data_in->lat;
+  blims::flight::gps_lon = blims::flight::gps_lon * 1e-7f;
+  blims::flight::gps_lat = blims::flight::gps_lat * 1e-7f;
+
   blims::flight::hAcc = data_in->hAcc;
   blims::flight::vAcc = data_in->vAcc;
   blims::flight::velN = data_in->velN;
   blims::flight::velE = data_in->velE;
   blims::flight::velD = data_in->velD;
   blims::flight::gSpeed = data_in->gSpeed;
+
   blims::flight::headMot = data_in->headMot;
+  blims::flight::headMot = ((blims::flight::headMot * 1e-5f) - 90) * -1;
+  if (blims::flight::headMot < 0)
+  {
+    blims::flight::headMot += 360.0f;
+  }
+
   blims::flight::sAcc = data_in->sAcc;
   blims::flight::headAcc = data_in->headAcc;
+
+  blims::flight::fixType = data_in->fixType;
 }
 
 int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data)

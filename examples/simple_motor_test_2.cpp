@@ -1,6 +1,7 @@
 #include "hardware/clocks.h"
 #include "hardware/pwm.h"
 #include "pico/stdlib.h"
+#include <cstdio>
 #define PWM_PIN 28         // GPIO pin to output PWM signal
 #define ODRIVE_STATE_PIN 0 // Choose a GPIO to send a state change signal
 // want wrap to be as large as possible, increases the amount of steps so that we have as much control as possible
@@ -58,11 +59,15 @@ int main()
     // send switch state command
     // Reset ODrive after an error
     gpio_put(ODRIVE_STATE_PIN, 0); // Pulse LOW to reset error state
+    printf("pulse low\n");
     sleep_ms(500);
     gpio_put(ODRIVE_STATE_PIN, 1); // Enable again
+    printf("enable\n");
     sleep_ms(5000);
+    printf("turn 0.5\n");
     set_motor_position(PWM_PIN, 0.5);
     sleep_ms(5000);
+    printf("turn 0.75\n");
     set_motor_position(PWM_PIN, 0.75);
     sleep_ms(5000);
     // set_motor_position(PWM_PIN, 1.0);
