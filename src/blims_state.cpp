@@ -34,7 +34,6 @@ namespace blims
     uint32_t timePassed = 0;
     //////TODO////
     uint32_t fixType = 0;
-    float error_integral = 0;
   }
   namespace MVP
   {
@@ -77,6 +76,7 @@ namespace blims
     // int32_t pid_D = 0;
     int32_t controllerOutput = 0;
     bool gps_state = false;
+    float error_integral = 0;
 
   };
 }
