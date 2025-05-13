@@ -62,7 +62,7 @@ namespace blims
     extern uint32_t currTime;
     extern uint32_t prevTime;
     extern uint32_t timePassed;
-    extern uint32_t fixType;
+    extern uint8_t fixType;
   }
   namespace MVP
   {

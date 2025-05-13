@@ -65,6 +65,7 @@ BLIMSDataOut BLIMS::execute(BLIMSDataIn *data_in)
     }
     if (blims_start == true)
     {
+      gpio_put(blims::flight::blims_enable_pin, 1); // pull enable pin high to clear errors and put motor in the right state
       BLIMS::execute_LV();
       data_print_test();
     }
@@ -83,7 +84,6 @@ int64_t BLIMS::init_timer(alarm_id_t id, void *user_data)
 int64_t BLIMS::pwm_setup_timer(alarm_id_t id, void *user_data)
 {
   pwm_start = true;
-  gpio_put(blims::flight::blims_enable_pin, 1); // Enable again
   return 0;
 }
 
@@ -95,10 +95,12 @@ void BLIMS::execute_LV()
 
     if (blims::flight::fixType == 4 || blims::flight::fixType == 3 || blims::flight::fixType == 2)
     {                                                                  // only run the logic if we have satellite lock and are moving fast enough to have a clear direction. More relevant to car testing than actual flight but do make sure that the code doesn't break if the expected data isn't returned for a loop or two
-      float dt_ms = blims::flight::currTime - blims::flight::prevTime; // calculate how long since last loop (delta time)
+      float dt_ms = (float)(blims::flight::currTime - blims::flight::prevTime); // calculate how long since last loop (delta time)
       blims::flight::prevTime = blims::flight::currTime;               // reset last time for the next loop
-      if (dt_ms <= 0 || dt_ms > 1000)
+      if (dt_ms <= 0 || dt_ms > 1000) {
         dt_ms = 100;              // cap to prevent large jumps
+      }
+        
       float dt = dt_ms / 1000.0f; // convert to seconds
 
       BLIMS::calculate_bearing();
@@ -133,7 +135,7 @@ void BLIMS::execute_LV()
     }
   }
   // TODO
-  sleep_ms(100); // loop runs at 10Hz
+  // sleep_ms(100); // loop runs at 10Hz
 }
 
 int32_t BLIMS::calculate_timePassed()
@@ -225,7 +227,6 @@ void BLIMS::pwm_setup()
   pwm_set_clkdiv(slice_num, divider);
   pwm_set_wrap(slice_num, wrap_cycle_count);
   pwm_set_enabled(slice_num, true);
-  gpio_put(blims::flight::blims_enable_pin, 1); // pull enable pin high to clear errors and put motor in the right state
 }
 
 void BLIMS::data_print_test()
@@ -246,8 +247,8 @@ void BLIMS::data_print_test()
   // printf("prevTime: %d\n", blims::flight::prevTime);
 
   printf("\nController Print Statements\n");
-  printf("pid_P: %d\n", blims::LV::pid_P);
-  printf("pid_I: %d\n", blims::LV::pid_I);
+  printf("pid_P: %f\n", blims::LV::pid_P);
+  printf("pid_I: %f\n", blims::LV::pid_I);
 #endif
 }
 
@@ -284,7 +285,7 @@ void BLIMS::update_state_gps_vars(BLIMSDataIn *data_in)
 
 int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data)
 {
-
+  gpio_put(blims::flight::blims_enable_pin, 1);
   blims::MVP::curr_action_index++;
 
   if (blims::MVP::curr_action_index >= 11)

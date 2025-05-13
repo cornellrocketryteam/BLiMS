@@ -33,7 +33,7 @@ namespace blims
     uint32_t prevTime = 0;
     uint32_t timePassed = 0;
     //////TODO////
-    uint32_t fixType = 0;
+    uint8_t fixType = 0;
 
   }
   namespace MVP
