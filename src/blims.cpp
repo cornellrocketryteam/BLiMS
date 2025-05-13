@@ -37,8 +37,6 @@ float compute_heading_error(float target, float current)
 }
 BLIMSDataOut BLIMS::execute(BLIMSDataIn *data_in)
 {
-  printf("IN BLIMS EXECUTE: %d\n", data_in->lat);
-
   // update state vars with FSW data
   update_state_gps_vars(data_in);
 
@@ -232,15 +230,10 @@ void BLIMS::pwm_setup()
 void BLIMS::data_print_test()
 {
 #ifdef VERBOSE // set in FSW
-  printf("blims_start:%d\n", blims_start);
-
-  printf("GPS Print Statements\n");
-  printf("Latitude: %d\n", blims::flight::gps_lat);
-  printf("Longitude: %d\n", blims::flight::gps_lon);
-  printf("Motor Position: %f\n", blims::flight::data_out.motor_position);
+  printf("blims_start: %d\n", blims_start);
 
   printf("\nLV Calculation Vars Print Statements\n");
-  printf("bearing: %d\n", blims::LV::bearing);
+  printf("bearing: %f\n", blims::LV::bearing);
   // printf("currTime: %d\n", blims::flight::currTime);
   // printf("timePassed: %d\n", blims::flight::timePassed);
   // printf("prevError: %d\n", blims::LV::prevError);
@@ -254,13 +247,8 @@ void BLIMS::data_print_test()
 
 void BLIMS::update_state_gps_vars(BLIMSDataIn *data_in)
 {
-  // how can I do this better
   blims::flight::gps_lon = data_in->lon * 1e-7f;
   blims::flight::gps_lat = data_in->lat * 1e-7f;
-  printf("IN UPDATE state: %f\n", blims::flight::gps_lat);
-
-  // blims::flight::gps_lon = blims::flight::gps_lon * 1e-7f;
-  // blims::flight::gps_lat = blims::flight::gps_lat * 1e-7f;
 
   blims::flight::hAcc = data_in->hAcc;
   blims::flight::vAcc = data_in->vAcc;
@@ -293,7 +281,6 @@ int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data)
     blims::MVP::curr_action_index = 0;
   }
   set_motor_position(blims::MVP::action_arr[blims::MVP::curr_action_index].position);
-  // state::flight::events.emplace_back(Event::blims_threshold_reached); // we've completed a motor action in action_arr
   add_alarm_in_ms(blims::MVP::action_arr[blims::MVP::curr_action_index].duration, BLIMS::execute_MVP, NULL, false);
 
   // update statex
