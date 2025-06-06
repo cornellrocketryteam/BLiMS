@@ -15,7 +15,7 @@
 static bool blims_start = false;
 static bool pwm_start = false;
 
-void BLIMS::begin(BLIMSMode mode, uint8_t pwm_pin, uint8_t enable_pin, int32_t target_lat, int32_t target_lon)
+void BLIMS::begin(BLIMSMode mode, uint8_t pwm_pin, uint8_t enable_pin, float target_lat, float target_lon)
 {
 
   blims::flight::flight_mode = mode;
