@@ -16,7 +16,10 @@ class BLIMS
 {
 public:
   // associated with blims object because not static
-  void begin(BLIMSMode mode, uint8_t pwm_pin, uint8_t enable_pin, float target_lat = 0, float target_lon = 0);
+  void begin(BLIMSMode mode, uint8_t pwm_pin, uint8_t enable_pin);
+  void set_target_lat(float lat);
+  void set_target_lon(float lon);
+
   BLIMSDataOut execute(BLIMSDataIn *data_in);
 
 private:

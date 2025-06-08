@@ -15,17 +15,24 @@
 static bool blims_start = false;
 static bool pwm_start = false;
 
-void BLIMS::begin(BLIMSMode mode, uint8_t pwm_pin, uint8_t enable_pin, float target_lat, float target_lon)
+void BLIMS::begin(BLIMSMode mode, uint8_t pwm_pin, uint8_t enable_pin)
 {
 
   blims::flight::flight_mode = mode;
   blims::flight::blims_pwm_pin = pwm_pin;
   blims::flight::blims_enable_pin = enable_pin;
-  blims::LV::target_lat = target_lat;
-  blims::LV::target_lon = target_lon;
   pwm_setup();
   // blims_start = false;
 }
+
+void BLIMS::set_target_lat(float lat) {
+  blims::LV::target_lat = target_lat;
+}
+
+void BLIMS::set_target_lon(float lon) {
+  blims::LV::target_lon = target_lon;
+}
+
 float compute_heading_error(float target, float current)
 {
   float error = target - current;
