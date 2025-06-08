@@ -26,11 +26,11 @@ void BLIMS::begin(BLIMSMode mode, uint8_t pwm_pin, uint8_t enable_pin)
 }
 
 void BLIMS::set_target_lat(float lat) {
-  blims::LV::target_lat = target_lat;
+  blims::LV::target_lat = lat;
 }
 
 void BLIMS::set_target_lon(float lon) {
-  blims::LV::target_lon = target_lon;
+  blims::LV::target_lon = lon;
 }
 
 float compute_heading_error(float target, float current)
