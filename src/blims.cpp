@@ -25,11 +25,13 @@ void BLIMS::begin(BLIMSMode mode, uint8_t pwm_pin, uint8_t enable_pin)
   // blims_start = false;
 }
 
-void BLIMS::set_target_lat(float lat) {
+void BLIMS::set_target_lat(float lat)
+{
   blims::LV::target_lat = lat;
 }
 
-void BLIMS::set_target_lon(float lon) {
+void BLIMS::set_target_lon(float lon)
+{
   blims::LV::target_lon = lon;
 }
 
@@ -99,13 +101,14 @@ void BLIMS::execute_LV()
   { // if gps status from FSW good then run
 
     if (blims::flight::fixType == 4 || blims::flight::fixType == 3 || blims::flight::fixType == 2)
-    {                                                                  // only run the logic if we have satellite lock and are moving fast enough to have a clear direction. More relevant to car testing than actual flight but do make sure that the code doesn't break if the expected data isn't returned for a loop or two
+    {                                                                           // only run the logic if we have satellite lock and are moving fast enough to have a clear direction. More relevant to car testing than actual flight but do make sure that the code doesn't break if the expected data isn't returned for a loop or two
       float dt_ms = (float)(blims::flight::currTime - blims::flight::prevTime); // calculate how long since last loop (delta time)
-      blims::flight::prevTime = blims::flight::currTime;               // reset last time for the next loop
-      if (dt_ms <= 0 || dt_ms > 1000) {
-        dt_ms = 100;              // cap to prevent large jumps
+      blims::flight::prevTime = blims::flight::currTime;                        // reset last time for the next loop
+      if (dt_ms <= 0 || dt_ms > 1000)
+      {
+        dt_ms = 100; // cap to prevent large jumps
       }
-        
+
       float dt = dt_ms / 1000.0f; // convert to seconds
 
       BLIMS::calculate_bearing();
@@ -219,6 +222,7 @@ void BLIMS::set_motor_position(float position)
   blims::flight::data_out.motor_position = position;
   blims::flight::data_out.pid_I = blims::LV::pid_I;
   blims::flight::data_out.pid_P = blims::LV::pid_P;
+  blims::flight::data_out.bearing = blims::LV::bearing;
 }
 
 void BLIMS::pwm_setup()

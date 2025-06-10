@@ -31,6 +31,7 @@ struct BLIMSDataOut
   float motor_position;
   float pid_P;
   float pid_I;
+  float bearing;
 };
 struct Action
 {
