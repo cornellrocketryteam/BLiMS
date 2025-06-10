@@ -130,10 +130,10 @@ void BLIMS::execute_LV()
 
       // control input is relative to 0.5 instead of 0, because neutral motor position is 0.5
       float position = 0.5f + correction;
-      if (position < 0.0f)
-        position = 0.0f;
-      if (position > 1.0f)
-        position = 1.0f;
+      if (position < 0.3f)
+        position = 0.3f;
+      if (position > 0.7f)
+        position = 0.7f;
 
       set_motor_position(position);
     }
@@ -176,11 +176,14 @@ void BLIMS::calculate_bearing()
   // convert all to radians
   blims::flight::gps_lat *= deg_to_rad;
   blims::flight::gps_lon *= deg_to_rad;
-  blims::LV::target_lat *= deg_to_rad;
-  blims::LV::target_lon *= deg_to_rad;
+  
+  float target_lat = blims::LV::target_lat;
+  float target_lon = blims::LV::target_lon;
+  target_lat *= deg_to_rad;
+  target_lon *= deg_to_rad;
 
-  float d_lon = blims::LV::target_lon - blims::flight::gps_lon;
-  float d_lat = blims::LV::target_lat - blims::flight::gps_lat;
+  float d_lon = target_lon - blims::flight::gps_lon;
+  float d_lat = target_lat - blims::flight::gps_lat;
   float bearing = atan2(d_lat, d_lon) * rad_to_deg; // compute angle, then convert back to degrees
 
   if (bearing < 0)
