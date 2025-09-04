@@ -32,7 +32,6 @@ namespace blims
     uint32_t currTime = 0;
     uint32_t prevTime = 0;
     uint32_t timePassed = 0;
-    //////TODO////
     uint8_t fixType = 0;
 
   }
@@ -63,19 +62,11 @@ namespace blims
   {
     float target_lat = 0; // set in begin
     float target_lon = 0; // set in begin
-    // int32_t LFP_lat = 0;    // GPS value
-    // int32_t LFP_lon = 0;    // GPS value
-    // int32_t deltaLat = 0;
-    // int32_t deltaLon = 0;
     float bearing = 0;
-    // int32_t magnitude = 0; // used for track with headMot
     float integralError = 0;
-    // int32_t angError = 0;
     float prevError = 0;
     float pid_P = 0;
     float pid_I = 0;
-    // int32_t pid_D = 0;
-    // int32_t controllerOutput = 0;
     bool gps_state = false;
     float error_integral = 0;
 

@@ -40,7 +40,6 @@ struct Action
 };
 namespace blims
 {
-  // TODO: break up into smaller sections
   namespace flight
   {
     extern uint8_t blims_pwm_pin;
@@ -75,23 +74,15 @@ namespace blims
   {
     extern float target_lat; // set in begin
     extern float target_lon; // set in begin
-    // extern int32_t LFP_lat;    // GPS value
-    // extern int32_t LFP_lon;    // GPS value
-    // extern int32_t deltaLat;
-    // extern int32_t deltaLon;
     extern float bearing;
-    // extern int32_t magnitude;     // used for track with headMot
-    extern float integralError; // could probably get rid of
-    // extern int32_t angError;
+    extern float integralError;
     extern float prevError;
     extern float pid_P;
     extern float pid_I;
-    // extern int32_t pid_D;
-    // extern int32_t controllerOutput;
     extern bool gps_state;
     extern float error_integral;
 
   };
-} // namespace name
+}
 
 #endif

@@ -22,7 +22,6 @@ void BLIMS::begin(BLIMSMode mode, uint8_t pwm_pin, uint8_t enable_pin)
   blims::flight::blims_pwm_pin = pwm_pin;
   blims::flight::blims_enable_pin = enable_pin;
   pwm_setup();
-  // blims_start = false;
 }
 
 void BLIMS::set_target_lat(float lat)
@@ -35,15 +34,6 @@ void BLIMS::set_target_lon(float lon)
   blims::LV::target_lon = lon;
 }
 
-float compute_heading_error(float target, float current)
-{
-  float error = target - current;
-  if (error > 180)
-    error -= 360; // Wrap error to be within 180, -180. Want to always take the shortest turn to the target
-  if (error < -180)
-    error += 360;
-  return error;
-}
 BLIMSDataOut BLIMS::execute(BLIMSDataIn *data_in)
 {
   // update state vars with FSW data
@@ -82,6 +72,16 @@ BLIMSDataOut BLIMS::execute(BLIMSDataIn *data_in)
   // depending on what our mode is, execute different functions
 }
 
+float compute_heading_error(float target, float current)
+{
+  float error = target - current;
+  if (error > 180)
+    error -= 360; // Wrap error to be within 180, -180. Want to always take the shortest turn to the target
+  if (error < -180)
+    error += 360;
+  return error;
+}
+
 int64_t BLIMS::init_timer(alarm_id_t id, void *user_data)
 {
   blims_start = true;
@@ -96,12 +96,10 @@ int64_t BLIMS::pwm_setup_timer(alarm_id_t id, void *user_data)
 
 void BLIMS::execute_LV()
 {
-  // TODO: how to set to true in FSW?
   if (blims::LV::gps_state)
   { // if gps status from FSW good then run
-
     if (blims::flight::fixType == 4 || blims::flight::fixType == 3 || blims::flight::fixType == 2)
-    {                                                                           // only run the logic if we have satellite lock and are moving fast enough to have a clear direction. More relevant to car testing than actual flight but do make sure that the code doesn't break if the expected data isn't returned for a loop or two
+    {                                                                           // only run the logic if we have satellite lock and are moving fast enough to have a clear direction. More relevant to car testing
       float dt_ms = (float)(blims::flight::currTime - blims::flight::prevTime); // calculate how long since last loop (delta time)
       blims::flight::prevTime = blims::flight::currTime;                        // reset last time for the next loop
       if (dt_ms <= 0 || dt_ms > 1000)
@@ -114,7 +112,7 @@ void BLIMS::execute_LV()
       BLIMS::calculate_bearing();
       float error = compute_heading_error(blims::LV::bearing, blims::flight::headMot);
 
-      blims::LV::error_integral += error * dt; // integral = area under curve. This is the discritized version of that
+      blims::LV::error_integral += error * dt; // integral = area under curve.
 
       float limit = 0.5f / Ki; // because error_integral gets multiplied by Ki later, this calculation makes sure that the clamping limits on the I term are indeed 0.5
       if (blims::LV::error_integral > limit)
@@ -142,8 +140,6 @@ void BLIMS::execute_LV()
       set_motor_position(0.5f); // set to neutral if no data
     }
   }
-  // TODO
-  // sleep_ms(100); // loop runs at 10Hz
 }
 
 int32_t BLIMS::calculate_timePassed()
@@ -157,26 +153,12 @@ int32_t BLIMS::calculate_timePassed()
   return timePassed;
 }
 
-// int32_t BLIMS::calculate_pid_I()
-// {
-//   blims::LV::integralError += blims::LV::angError * blims::flight::timePassed;
-//   if (blims::LV::integralError > integral_max)
-//   {
-//     blims::LV::integralError = integral_max;
-//   }
-//   else if (blims::LV::integralError < -integral_max)
-//   {
-//     blims::LV::integralError = -integral_max;
-//   }
-//   return Ki * blims::LV::integralError;
-// }
-
 void BLIMS::calculate_bearing()
 {
   // convert all to radians
   blims::flight::gps_lat *= deg_to_rad;
   blims::flight::gps_lon *= deg_to_rad;
-  
+
   float target_lat = blims::LV::target_lat;
   float target_lon = blims::LV::target_lon;
   target_lat *= deg_to_rad;
@@ -193,22 +175,6 @@ void BLIMS::calculate_bearing()
   blims::LV::bearing = bearing;
 }
 
-// int32_t BLIMS::calculate_angError()
-// {
-//   int32_t angError = blims::flight::headMot - blims::LV::bearing;
-
-//   // Normalize error to be within [-180, 180]. Want to take the shorter path
-//   if (angError > 180)
-//   {
-//     angError -= 360;
-//   }
-//   else if (angError < -180)
-//   {
-//     angError += 360;
-//   }
-//   return angError;
-// }
-
 void BLIMS::set_motor_position(float position)
 {
   uint slice_num = pwm_gpio_to_slice_num(blims::flight::blims_pwm_pin);
@@ -221,7 +187,6 @@ void BLIMS::set_motor_position(float position)
   uint16_t duty = (uint16_t)(five_percent_duty_cycle + position * five_percent_duty_cycle);
   pwm_set_chan_level(slice_num, pwm_gpio_to_channel(blims::flight::blims_pwm_pin), duty);
   // update state of motor (what is the position at the current time)
-  // state::blims::motor_position = position;
   blims::flight::data_out.motor_position = position;
   blims::flight::data_out.pid_I = blims::LV::pid_I;
   blims::flight::data_out.pid_P = blims::LV::pid_P;
