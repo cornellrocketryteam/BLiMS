@@ -102,10 +102,10 @@ void BLIMS::execute_LV()
     {                                                                           // only run the logic if we have satellite lock and are moving fast enough to have a clear direction. More relevant to car testing
       float dt_ms = (float)(blims::flight::currTime - blims::flight::prevTime); // calculate how long since last loop (delta time)
       blims::flight::prevTime = blims::flight::currTime;                        // reset last time for the next loop
-      if (dt_ms <= 0 || dt_ms > 1000)
-      {
-        dt_ms = 100; // cap to prevent large jumps
-      }
+      // if (dt_ms <= 0 || dt_ms > 1000)
+      // {
+      //   dt_ms = 100; // cap to prevent large jumps
+      // }
 
       float dt = dt_ms / 1000.0f; // convert to seconds
 
