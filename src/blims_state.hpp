@@ -14,11 +14,12 @@ struct BLIMSDataIn
 {
   int32_t lon;
   int32_t lat;
+  float alt_agl_ft; // (in feet, altimeter derived)
   uint32_t hAcc;
   uint32_t vAcc;
   int32_t velN;
   int32_t velE;
-  int32_t velD;
+  int32_t velD; //positive = descending
   int32_t gSpeed;
   int32_t headMot;
   uint32_t sAcc;
@@ -31,9 +32,11 @@ struct BLIMSDataOut
   float motor_position;
   float pid_P;
   float pid_I;
-  float bearing;
+  float bearing; //0 = North CW
+  // -1=held,0=track,1=downwind,2=base,3=final,4=neutral,5=held
+  int32_t phase_id;
 };
-struct Action
+struct Action //action entry for MVP open-loop sequence
 {
   float position;
   uint32_t duration;
@@ -50,6 +53,7 @@ namespace blims
     extern BLIMSDataOut data_out;
     extern float gps_lon;
     extern float gps_lat;
+    extern float alt_agl_ft;
     extern uint32_t hAcc;
     extern uint32_t vAcc;
     extern int32_t velN;
@@ -81,6 +85,12 @@ namespace blims
     extern float pid_I;
     extern bool gps_state;
     extern float error_integral;
+    // NEW (L3-1): wind direction "FROM" (deg 0-360), uploaded preflight
+    extern float wind_from_deg;
+
+    // NEW: loiter sequencing state
+    extern int32_t loiter_step;          // 0=right,1=neutral,2=left,3=neutral
+    extern uint32_t loiter_step_start_ms;
 
   };
 }

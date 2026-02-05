@@ -4,7 +4,10 @@
  *
  * @brief BLiMS state variables
  */
-
+// - Added alt_agl_ft initialization
+// - Added wind_from_deg initialization
+// - Added loiter state variables
+// - Added phase_id to data_out initialization
 #include "blims_state.hpp"
 #include "blims_constants.hpp"
 namespace blims
@@ -13,13 +16,22 @@ namespace blims
   {
     uint8_t blims_pwm_pin = 0;
     uint8_t blims_enable_pin = 0;
+
     bool blims_init = false;
+
     BLIMSMode flight_mode = STANDBY;
-    float motor_position = 0;
+
+    float motor_position = 0.0f;
     BLIMSDataOut data_out = {
-        .motor_position = 0};
-    float gps_lon = 0;
-    float gps_lat = 0;
+        .motor_position = 0.0f,
+        .pid_P = 0.0f,
+        .pid_I = 0.0f,
+        .bearing = 0.0f,
+        .phase_id = -1}; //start in HELD state
+    float gps_lon = 0.0f;
+    float gps_lat = 0.0f;
+    // NEW (L3-1)
+    float alt_agl_ft = 0.0f;
     uint32_t hAcc = 0;
     uint32_t vAcc = 0;
     int32_t velN = 0;
@@ -60,15 +72,20 @@ namespace blims
   }
   namespace LV
   {
-    float target_lat = 0; // set in begin
-    float target_lon = 0; // set in begin
-    float bearing = 0;
-    float integralError = 0;
-    float prevError = 0;
-    float pid_P = 0;
-    float pid_I = 0;
+    float target_lat = 0.0f; // set in begin
+    float target_lon = 0.0f; // set in begin
+    float bearing = 0.0f;
+    float integralError = 0.0f;
+    float prevError = 0.0f;
+    float pid_P = 0.0f;
+    float pid_I = 0.0f;
+    float error_integral = 0.0f;
+    
     bool gps_state = false;
-    float error_integral = 0;
-
+    // NEW (L3-1) - direction wind is coming FROM
+    float wind_from_deg = 0.0f;
+    //NEW: 0=turning right, 1=neutral, 2=turning left, 3=neutral
+    int32_t loiter_step = 0;
+    uint32_t loiter_step_start_ms = 0;
   };
 }

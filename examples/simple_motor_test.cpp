@@ -58,23 +58,24 @@ void set_motor_position(uint gpio_pin, float position)
 int main()
 {
   stdio_init_all();
+  sleep_ms(2000); // wait for terminal to open
+  printf("Starting motor test 1\n"); 
 
   setup_pwm_50hz(PWM_PIN);
 
   while (1)
   {
-    printf("start sequence");
+    printf("start sequence\n");
 
     set_motor_position(PWM_PIN, 0.0);
     sleep_ms(3000);
-    printf("finish turn 1");
-
+    printf("finish turn 1\n");
     set_motor_position(PWM_PIN, 0.5);
     sleep_ms(3000);
 
     set_motor_position(PWM_PIN, 1.0);
     sleep_ms(3000);
-    printf("finish sequence");
+    printf("finish sequence\n");
   }
 
   return 0;

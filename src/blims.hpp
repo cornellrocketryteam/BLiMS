@@ -3,6 +3,14 @@
  * @author gb486
  *
  * @brief BLiMS related definitions
+ * State Machine:
+ *   Phase -1: HELD     - Invalid GPS/speed, motor at neutral
+ *   Phase  0: TRACK    - PI control homing to target (>1000ft, outside set radius)
+ *   Phase  1: DOWNWIND - Fly with wind (1000-600ft)
+ *   Phase  2: BASE     - Perpendicular to wind (600-300ft)
+ *   Phase  3: FINAL    - Into wind (300-100ft)
+ *   Phase  4: NEUTRAL  - Hands off for landing (<100ft)
+ *   Phase  5: LOITER   - Altitude bleed via alternating turns (>1000ft, inside set radius)
  */
 #ifndef BLIMS_HPP
 #define BLIMS_HPP
@@ -20,7 +28,13 @@ public:
   void set_target_lat(float lat);
   void set_target_lon(float lon);
 
+  // NEW (L3-1): uplink wind direction "FROM" in degrees (0..360)
+  void set_wind_from_deg(float wind_from_deg);
+
   BLIMSDataOut execute(BLIMSDataIn *data_in);
+
+  static float wrap360(float deg);
+  static float wrap180(float deg);
 
 private:
   // configures the pwm signal
