@@ -1,495 +1,702 @@
 /**
  * @file blims.cpp
- * @author gb486
- *
- * @brief BLIMS Functionality
- * CHANGELOG (from original):
- * - FIXED: Bearing calculation now uses proper great-circle formula
- * - FIXED: No longer mutates gps_lat/gps_lon during bearing calculation
- * - FIXED: currTime now properly updated from hardware timer
- * - ADDED: 6-phase state machine (HELD, TRACK, DOWNWIND, BASE, FINAL, NEUTRAL, LOITER)
- * - ADDED: Integral reset on phase transitions
- * - ADDED: Minimum ground speed gate for GPS heading validity
- * - ADDED: set_wind_from_deg() API for pre-flight wind configuration
- * - ADDED: Distance-to-target calculation for loiter entry
+ * @brief BLiMS (Brake Line Manipulation System) - Parafoil Guidance Controller
  * 
- * State Machine:
- *   Phase -1: HELD (GPS invalid, low speed, bad fix)
- *   Phase  0: TRACK (>1000ft, outside 400ft radius, PI homing)
- *   Phase  1: DOWNWIND (1000-600ft, fly with wind)
- *   Phase  2: BASE (600-300ft, perpendicular to wind)
- *   Phase  3: FINAL (300-100ft, into wind)
- *   Phase  4: NEUTRAL (below 100ft, hands off)
- *   Phase  5: LOITER (>1000ft, inside 400ft radius, altitude bleed)
+ * This file implements the guidance algorithm for steering a parafoil to a target
+ * landing location. The system uses GPS track (direction of motion) as the control
+ * variable and actuates a single motor that pulls brake lines to turn the parafoil.
+ * 
+ * CONTROL CONCEPT:
+ * - Motor position 0.5 = neutral (no brake)
+ * - Motor position < 0.5 = pull left brake (turn left)
+ * - Motor position > 0.5 = pull right brake (turn right)
+ * - We use GPS "track" (headMot) not compass heading, because track naturally
+ *   accounts for wind drift and canopy oscillation
+ * 
+ * FLIGHT PHASES:
+ * The controller transitions through phases based on altitude (AGL):
+ * 
+ *   Phase::HELD     (0) - GPS invalid or system not ready, motor at neutral
+ *   Phase::TRACK    (1) - Above 1000ft AND outside 400ft of target, PI control toward target
+ *   Phase::DOWNWIND (2) - 1000ft to 600ft, fly with the wind (downwind heading)
+ *   Phase::BASE     (3) - 600ft to 300ft, fly perpendicular to wind (crosswind)
+ *   Phase::FINAL    (4) - 300ft to 100ft, fly into the wind for slow ground speed landing
+ *   Phase::NEUTRAL  (5) - Below 100ft, hands off for touchdown
+ *   Phase::LOITER   (6) - Above 1000ft AND within 400ft of target, spiral to lose altitude
+ * 
+ * LANDING PATTERN:
+ * The downwind-base-final pattern is a standard aviation approach that ensures
+ * the parafoil arrives at the target heading into the wind, minimizing ground
+ * speed at touchdown.
+ * 
+ *        Wind Direction
+ *             ↓
+ *     ┌───────────────┐
+ *     │   DOWNWIND    │  (fly with wind, away from target)
+ *     │   1000-600ft  │
+ *     └───────┬───────┘
+ *             │
+ *     ┌───────▼───────┐
+ *     │     BASE      │  (turn perpendicular to wind)
+ *     │   600-300ft   │
+ *     └───────┬───────┘
+ *             │
+ *     ┌───────▼───────┐
+ *     │    FINAL      │  (turn into wind, approach target)
+ *     │   300-100ft   │
+ *     └───────┬───────┘
+ *             │
+ *           TARGET
+ * 
+ * @author Cornell Rocketry Team
+ * @date 2025
  */
 
 #include "blims.hpp"
-#include "blims_state.hpp"
 #include "blims_constants.hpp"
+#include "blims_state.hpp"
+#include "pico/time.h"
 #include "hardware/pwm.h"
-#include "hardware/timer.h"
-#include <math.h>
+#include "hardware/gpio.h"
+#include <cmath>
 
-static bool blims_start = false;
-static bool pwm_start = false;
-static int32_t last_phase = -99; //track last phase for integral reset
+// ============================================================================
+// PHASE ENUMERATION
+// ============================================================================
 
-void BLIMS::begin(BLIMSMode mode, uint8_t pwm_pin, uint8_t enable_pin)
-{
+/**
+ * @enum Phase
+ * @brief Flight phases for the landing pattern state machine
+ * 
+ * Each phase corresponds to a specific altitude band and steering behavior.
+ * The phase determines what heading the controller tries to achieve.
+ */
+enum class Phase : int8_t {
+    HELD     = 0,  // GPS invalid or not ready - hold neutral
+    TRACK    = 1,  // PI control toward target bearing
+    DOWNWIND = 2,  // Fly with the wind (heading = wind direction)
+    BASE     = 3,  // Fly perpendicular to wind (crosswind leg)
+    FINAL    = 4,  // Fly into the wind (heading = opposite of wind)
+    NEUTRAL  = 5,  // Below minimum altitude - hands off
+    LOITER   = 6   // Spiral turns to bleed altitude while staying near target
+};
 
-  blims::flight::flight_mode = mode;
-  blims::flight::blims_pwm_pin = pwm_pin;
-  blims::flight::blims_enable_pin = enable_pin;
-  pwm_setup();
+/**
+ * @enum LoiterStep
+ * @brief Sub-states within the LOITER phase
+ * 
+ * When loitering, we alternate between turning right and left with neutral
+ * periods in between. This creates a figure-8 or spiral pattern that bleeds
+ * altitude without drifting far from the target.
+ * 
+ * Timing for each step:
+ * - TURN_RIGHT:   6.0 seconds of right brake
+ * - PAUSE_RIGHT:  2.5 seconds neutral (let parafoil stabilize)
+ * - TURN_LEFT:    6.0 seconds of left brake  
+ * - PAUSE_LEFT:   2.5 seconds neutral (let parafoil stabilize)
+ * 
+ * Total loiter cycle: 17 seconds
+ */
+enum class LoiterStep : int8_t {
+    TURN_RIGHT  = 0,  // Pull right brake
+    PAUSE_RIGHT = 1,  // Neutral after right turn
+    TURN_LEFT   = 2,  // Pull left brake
+    PAUSE_LEFT  = 3   // Neutral after left turn
+};
+
+// ============================================================================
+// LOITER TIMING CONSTANTS
+// ============================================================================
+
+// Note: Loiter timing and motor positions defined in blims_constants.hpp
+
+// ============================================================================
+// STATE VARIABLES
+// ============================================================================
+
+// Current loiter sub-state
+static LoiterStep loiter_step = LoiterStep::TURN_RIGHT;
+
+// Alarm ID for the current loiter timer (used to cancel if we exit loiter)
+static alarm_id_t loiter_alarm_id = -1;
+
+// Flag set by alarm callback to indicate state transition is needed
+static volatile bool loiter_advance_pending = false;
+
+// Accumulated heading error for PI integral term
+static float error_integral = 0.0f;
+
+// Track the previous phase to detect phase changes
+static Phase last_phase = Phase::HELD;
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * @brief Wrap an angle to the range [0, 360)
+ * @param angle Input angle in degrees
+ * @return Angle wrapped to [0, 360)
+ */
+static float wrap360(float angle) {
+    angle = fmodf(angle, 360.0f);
+    if (angle < 0.0f) {
+        angle += 360.0f;
+    }
+    return angle;
 }
 
-void BLIMS::set_target_lat(float lat)
-{
-  blims::LV::target_lat = lat;
+/**
+ * @brief Wrap an angle to the range [-180, 180)
+ * @param angle Input angle in degrees
+ * @return Angle wrapped to [-180, 180)
+ * 
+ * This is useful for computing heading errors where we want the shortest
+ * turn direction (positive = turn right, negative = turn left).
+ */
+static float wrap180(float angle) {
+    angle = fmodf(angle, 360.0f);
+    if (angle > 180.0f) {
+        angle -= 360.0f;
+    } else if (angle < -180.0f) {
+        angle += 360.0f;
+    }
+    return angle;
 }
 
-void BLIMS::set_target_lon(float lon)
-{
-  blims::LV::target_lon = lon;
-}
-
-// NEW (L3-1)
-void BLIMS::set_wind_from_deg(float wind_from_deg)
-{
-  blims::LV::wind_from_deg = wrap360(wind_from_deg);
-}
-
-BLIMSDataOut BLIMS::execute(BLIMSDataIn *data_in)
-{
-  // update state vars with FSW data
-  update_state_gps_vars(data_in);
-
-  if (blims::flight::flight_mode == STANDBY)
-  {
-  }
-  else if (blims::flight::flight_mode == MVP_Flight)
-  {
+/**
+ * @brief Calculate bearing from current position to target
+ * @return Bearing in degrees [0, 360), where 0 = North, 90 = East
+ * 
+ * Uses flat-earth approximation which is accurate to <0.1° for distances
+ * under 2km at mid-latitudes. This is well within GPS accuracy limits.
+ */
+static float calculate_bearing_to_target() {
+    float d_lat = blims::LV::target_lat - blims::flight::gps_lat;
+    float d_lon = blims::LV::target_lon - blims::flight::gps_lon;
     
-    if (!blims::flight::blims_init)
-    {
-      blims::flight::blims_init = true;
-      add_alarm_in_ms(initial_hold_threshold, BLIMS::execute_MVP, NULL, true);
-    }
-  }
-  else if (blims::flight::flight_mode == LV)
-  {
-    // add blims state var --> 20 second wait is over
-    // static funcition --> sets var to true, if false, don't do anything, if true, call execute_LV
-    if (!blims::flight::blims_init)
-    {
-      add_alarm_in_ms(initial_hold_threshold, BLIMS::init_timer, NULL, true);
-      blims::flight::blims_init = true;
-    }
-    if (blims_start == true)
-    {
-      gpio_put(blims::flight::blims_enable_pin, 1); // pull enable pin high to clear errors and put motor in the right state
-      BLIMS::execute_LV();
-      data_print_test();
-    }
-  }
-
-  return blims::flight::data_out;
-  // depending on what our mode is, execute different functions
+    // Correct for longitude convergence at latitude
+    float lat_rad = blims::flight::gps_lat * (M_PI / 180.0f);
+    float d_lon_corrected = d_lon * cosf(lat_rad);
+    
+    // atan2(east, north) gives bearing from north, clockwise positive
+    float bearing_rad = atan2f(d_lon_corrected, d_lat);
+    float bearing_deg = bearing_rad * (180.0f / M_PI);
+    
+    return wrap360(bearing_deg);
 }
 
-// ------------------- Angle wraps (NEW) -------------------
-float BLIMS::wrap360(float deg)
-{
-  while (deg >= 360.0f) deg -= 360.0f;
-  while (deg < 0.0f)    deg += 360.0f;
-  return deg;
+/**
+ * @brief Calculate distance from current position to target
+ * @return Distance in meters
+ * 
+ * Uses flat-earth approximation with latitude correction.
+ */
+static float calculate_distance_to_target() {
+    float d_lat = blims::LV::target_lat - blims::flight::gps_lat;
+    float d_lon = blims::LV::target_lon - blims::flight::gps_lon;
+    
+    // Convert to meters (111320 m per degree latitude at equator)
+    float lat_rad = blims::flight::gps_lat * (M_PI / 180.0f);
+    float d_north_m = d_lat * 111320.0f;
+    float d_east_m = d_lon * 111320.0f * cosf(lat_rad);
+    
+    return sqrtf(d_north_m * d_north_m + d_east_m * d_east_m);
 }
 
-float BLIMS::wrap180(float deg)
-{
-  deg = wrap360(deg);
-  if (deg > 180.0f) deg -= 360.0f;
-  return deg;
+/**
+ * @brief Compute heading error (desired - actual)
+ * @param desired_heading Target heading in degrees
+ * @param actual_heading Current heading in degrees
+ * @return Error in degrees, wrapped to [-180, 180)
+ *         Positive = need to turn right, Negative = need to turn left
+ */
+static float compute_heading_error(float desired_heading, float actual_heading) {
+    return wrap180(desired_heading - actual_heading);
 }
 
-float compute_heading_error(float target, float current)
-{
-  float error = target - current;
-  if (error > 180.0f)
-    error -= 360.0f; // Wrap error to be within 180, -180. Want to always take the shortest turn to the target
-  if (error < -180.0f)
-    error += 360.0f;
-  return error;
-}
+// ============================================================================
+// MOTOR CONTROL
+// ============================================================================
 
-// Flat-earth distance to target (good enough for a few km)
-static float distance_to_target_m(float lat_deg, float lon_deg, float tlat_deg, float tlon_deg)
-{
-  // equirectangular approximation
-  const float lat_rad = lat_deg * deg_to_rad;
-  const float x = (tlon_deg - lon_deg) * deg_to_rad * cosf(lat_rad);
-  const float y = (tlat_deg - lat_deg) * deg_to_rad;
-  const float R = 6371000.0f;
-  return R * sqrtf(x*x + y*y);
-}
-//for highest accuracy  - use great earth formula **
-
-int64_t BLIMS::init_timer(alarm_id_t id, void *user_data)
-{
-  blims_start = true;
-  return 0;
-}
-
-int64_t BLIMS::pwm_setup_timer(alarm_id_t id, void *user_data)
-{
-  pwm_start = true;
-  return 0;
-}
-
-void BLIMS::execute_LV()
-{
-  // GPS validity gate from FSW
-  if (!blims::LV::gps_state)
-  {
-    blims::flight::data_out.phase_id = -1;
-    set_motor_position(neutral_pos);
-    return;
-  }
-  // FixType gate - (require at least 2D fix)
-  // 0=none, 1=DR only, 2=2D, 3=3D, 4=3D+DGPS
-  if (!(blims::flight::fixType >= 2 && blims::flight::fixType <= 4))
-  {
-    blims::flight::data_out.phase_id = -1;
-    set_motor_position(neutral_pos);
-    return;
-  }
-
-  // minimum groundspeed for reliable heading
-  if (blims::flight::gSpeed < GSPEED_MIN_FOR_HEADING)
-  {
-    blims::flight::data_out.phase_id = -1;
-    set_motor_position(neutral_pos);
-    return;
-  }
-
-  if (blims::LV::gps_state)
-    // if gps status from FSW good then run
-    if (blims::flight::fixType == 4 || blims::flight::fixType == 3 || blims::flight::fixType == 2)
-    {                                                                           // only run the logic if we have satellite lock and are moving fast enough to have a clear direction. More relevant to car testing
-      float dt_ms = (float)(blims::flight::currTime - blims::flight::prevTime); // calculate how long since last loop (delta time)
-      blims::flight::prevTime = blims::flight::currTime;                        // reset last time for the next loop
-      // if (dt_ms <= 0 || dt_ms > 1000)
-      // {
-      //   dt_ms = 100; // cap to prevent large jumps
-      // }
-
-      float dt = dt_ms / 1000.0f; // convert to seconds
-      if (dt <= 0.0f || dt > 1.0f) dt = 0.02f; // placeholder fallback (50 Hz)
-
-      // Compute normal tracking bearing (to target)
-      calculate_bearing(); // sets blims::LV::bearing
-
-      // Compute distance to target (for set-radius logic)
-      float dist_m = distance_to_target_m(blims::flight::gps_lat, blims::flight::gps_lon,
-                                      blims::LV::target_lat, blims::LV::target_lon);
-      float dist_ft = dist_m * FT_PER_M;
-
-      const float W  = wrap360(blims::LV::wind_from_deg);     // wind FROM
-      const float DW = wrap360(W + 180.0f);                   // downwind (wind TO)
-
-      // ------------------- L3-1: choose desired heading by altitude band -------------------
-      const float alt_ft = blims::flight::alt_agl_ft; //current altitude from altimeter
-
-      float heading_des = blims::LV::bearing; // default: track-to-target
-      int32_t phase = 0;                   // 0=track
-
-      // Phase 4: very low - neutral
-      if (alt_ft <= ALT_NEUTRAL_FT)
-      {
-        phase = 4;
-        blims::flight::data_out.phase_id = phase;
-
-        //reset integral on phase entry
-        if (last_phase != phase)
-        {
-          blims::LV::error_integral = 0.0f; // reset integral on phase change
-          last_phase = phase;
-        }
-
-        set_motor_position(neutral_pos);
-        blims::LV::bearing = heading_des;
-        return;
-      }
-
-      // -----------------------------
-      // Above 1000 ft: TRACK or LOITER depending on set radius
-      // -----------------------------
-      if (alt_ft > ALT_UTURN_START_FT)
-      {
-        if (dist_ft <= SET_RADIUS_FT)
-        {
-          // Phase 5:LOITER / altitude bleed until we reach 1000 ft and within 400ft of target
-          phase = 5;
-          blims::flight::data_out.phase_id = phase;
-          
-          if (last_phase != phase)
-          {
-            blims::LV::error_integral = 0.0f; // reset integral on phase change
-            blims::LV::loiter_step = 0;
-            blims::LV::loiter_step_start_ms = blims::flight::currTime;
-            last_phase = phase;
-          }
-
-          uint32_t elapsed = blims::flight::currTime - blims::LV::loiter_step_start_ms;
-
-          // Step machine: 0=right turn, 1=neutral, 2=left turn, 3=neutral
-          // Loiter state machine: RIGHT -> NEUTRAL -> LEFT -> NEUTRAL -> repeat
-          switch (blims::LV::loiter_step)
-          {
-            case 0:  // Turning right
-              if (elapsed >= LOITER_TURN_MS)
-              {
-                blims::LV::loiter_step = 1;
-                blims::LV::loiter_step_start_ms = blims::flight::currTime;
-              }
-              break;
-              
-            case 1:  // Neutral pause
-              if (elapsed >= LOITER_NEUTRAL_MS)
-              {
-                blims::LV::loiter_step = 2;
-                blims::LV::loiter_step_start_ms = blims::flight::currTime;
-              }
-              break;
-              
-            case 2:  // Turning left
-              if (elapsed >= LOITER_TURN_MS)
-              {
-                blims::LV::loiter_step = 3;
-                blims::LV::loiter_step_start_ms = blims::flight::currTime;
-              }
-              break;
-              
-            case 3:  // Neutral pause
-              if (elapsed >= LOITER_NEUTRAL_MS)
-              {
-                blims::LV::loiter_step = 0;
-                blims::LV::loiter_step_start_ms = blims::flight::currTime;
-              }
-              break;
-          }
-
-          float pos = neutral_pos;
-          if (blims::LV::loiter_step == 0) pos = LOITER_RIGHT_POS;
-          if (blims::LV::loiter_step == 2) pos = LOITER_LEFT_POS;
-
-          // For logging
-          set_motor_position(pos);
-          blims::LV::bearing = blims::LV::bearing; // keep target bearing in bearing, or ignore
-          return;
-        }
-        else
-        {
-          // Phase 0: TRACK toward target
-          phase = 0;
-          heading_des = blims::LV::bearing;
-
-          // reset loiter state when leaving loiter zone
-          blims::LV::loiter_step_start_ms = 0;
-          blims::LV::loiter_step = 0;
-        }
-      }
-      //LANDING PATTERN BELOW 1000 FT.
-      else if (alt_ft <= ALT_FINAL_START_FT)
-      {
-        // Phase 3: Final approach: fly directly into wind for controlled descent under 300 ft. 
-        phase = 3;
-        heading_des = W; //fly toward where wind comes from
-      }
-      else if (alt_ft <= ALT_BASE_START_FT)
-      {
-        // Phase 2: Base leg - turn to fly perpendicualr to wind from 300-600 ft. 
-        phase = 2;
-        // Base: +/- 90 off downwind, choose smaller turn - calculate both perpendicular options
-        float base1 = wrap360(DW + 90.0f);
-        float base2 = wrap360(DW -90.0f); 
-
-        float e1 = fabsf(wrap180(base1 - blims::flight::headMot));
-        float e2 = fabsf(wrap180(base2 - blims::flight::headMot));
-
-        heading_des = (e1 <= e2) ? base1 : base2;
-      }
-      else 
-      {
-        // Phase 1: Downwind, 1000-600 ft. flying with the wind to cover ground
-        phase = 1;
-        heading_des = DW;
-      }
-
-      blims::flight::data_out.phase_id = phase;
-
-      if (phase != last_phase)
-      {
-        blims::LV::error_integral = 0.0f; // reset integral on phase change to prevent carryover
-        last_phase = phase;
-      }
-
-      //PID Code//
-      float error = compute_heading_error(heading_des, (float)blims::flight::headMot);
-
-      blims::LV::error_integral += error * dt; // integral = area under curve.
-
-      float limit = 0.5f / Ki; // because error_integral gets multiplied by Ki later, this calculation makes sure that the clamping limits on the I term are indeed 0.5
-      if (blims::LV::error_integral > limit)
-        blims::LV::error_integral = limit; // clamp term to prevent integral windup
-      if (blims::LV::error_integral < -limit)
-        blims::LV::error_integral = -limit;
-
-      // calculate control terms
-      blims::LV::pid_P = -1.0f * Kp * error;
-      blims::LV::pid_I = -1.0f * Ki * blims::LV::error_integral;
-
-      float correction = blims::LV::pid_P + blims::LV::pid_I;
-
-      // control input is relative to 0.5 instead of 0, because neutral motor position is 0.5
-      float position = neutral_pos+ correction; //neutral_pos = 0.5f
-      if (position < motor_min) //motor_min = 0.3f
+/**
+ * @brief Set the motor position with clamping to safe limits
+ * @param position Desired position [0.0, 1.0] where 0.5 is neutral
+ * 
+ * The position is clamped to [MOTOR_MIN, MOTOR_MAX] to prevent over-actuation
+ * that could damage the brake lines or cause uncontrollable turns.
+ */
+void set_motor_position(float position) {
+    // Clamp to safe operating range
+    if (position < motor_min) {
         position = motor_min;
-      if (position > motor_max) //motor_max = 0.7f
+    } else if (position > motor_max) {
         position = motor_max;
-
-      blims::LV::bearing = heading_des;
-      set_motor_position(position);
     }
-    else
-    {
-      set_motor_position(0.5f); // set to neutral if no data
+    
+    blims::flight::motor_position = position;
+    
+    // Convert to PWM duty cycle and send to hardware
+    uint16_t five_percent_duty = wrap_cycle_count * 0.05f;
+    uint16_t duty = (uint16_t)(five_percent_duty + position * five_percent_duty);
+
+    pwm_set_chan_level(
+        pwm_gpio_to_slice_num(blims::flight::blims_pwm_pin),
+        pwm_gpio_to_channel(blims::flight::blims_pwm_pin),
+        duty
+    );
+}
+
+// ============================================================================
+// PHASE DETERMINATION
+// ============================================================================
+
+/**
+ * @brief Determine the current flight phase based on altitude and position
+ * @param altitude_ft Current altitude in feet AGL
+ * @param gps_valid Whether GPS data is valid
+ * @return The appropriate Phase for current conditions
+ * 
+ * Phase selection logic:
+ * 1. If GPS invalid → HELD
+ * 2. If below 100ft → NEUTRAL (hands off for landing)
+ * 3. If above 1000ft:
+ *    - If within 400ft of target → LOITER (bleed altitude)
+ *    - Otherwise → TRACK (fly toward target)
+ * 4. If 600-1000ft → DOWNWIND
+ * 5. If 300-600ft → BASE
+ * 6. If 100-300ft → FINAL
+ */
+static Phase determine_phase(float altitude_ft, bool gps_valid) {
+    // GPS must be valid for any active control
+    if (!gps_valid) {
+        return Phase::HELD;
     }
-  }
+    
+    // Below minimum altitude - hands off for touchdown
+    if (altitude_ft < alt_neutral_ft) {
+        return Phase::NEUTRAL;
+    }
+    
+    // High altitude - either loiter or track toward target
+    if (altitude_ft > alt_downwind_ft) {
+        float distance_ft = calculate_distance_to_target() * 3.28084f;
+        
+        if (distance_ft < set_radius_ft) {
+            return Phase::LOITER;  // Close to target, bleed altitude
+        } else {
+            return Phase::TRACK;   // Far from target, fly toward it
+        }
+    }
+    
+    // Landing pattern phases based on altitude
+    if (altitude_ft > alt_base_ft) {
+        return Phase::DOWNWIND;
+    } else if (altitude_ft > alt_final_ft) {
+        return Phase::BASE;
+    } else {
+        return Phase::FINAL;
+    }
 }
 
-int32_t BLIMS::calculate_timePassed()
-{
-  int32_t timePassed = (blims::flight::currTime - blims::flight::prevTime) / 1000;
-
-  if (blims::flight::timePassed <= 0)
-  {
-    blims::flight::timePassed = 0.001;
-  }
-  return timePassed;
+/**
+ * @brief Get the desired heading for the current phase
+ * @param phase Current flight phase
+ * @param bearing_to_target Bearing from current position to target
+ * @return Desired heading in degrees [0, 360)
+ */
+static float get_desired_heading(Phase phase, float bearing_to_target) {
+    float wind_from = blims::LV::wind_from_deg;
+    float wind_to = wrap360(wind_from + 180.0f);  // Direction wind is blowing TO
+    
+    switch (phase) {
+        case Phase::TRACK:
+            // Fly directly toward target
+            return bearing_to_target;
+            
+        case Phase::DOWNWIND:
+            // Fly with the wind (same direction wind is blowing)
+            return wind_to;
+            
+        case Phase::BASE: {
+            // Fly perpendicular to wind
+            // Choose the crosswind direction that's a shorter turn from current heading
+            float crosswind_left = wrap360(wind_from - 90.0f);
+            float crosswind_right = wrap360(wind_from + 90.0f);
+            
+            float current_heading = blims::flight::headMot * 1e-5f;
+            float error_left = fabsf(wrap180(crosswind_left - current_heading));
+            float error_right = fabsf(wrap180(crosswind_right - current_heading));
+            
+            return (error_left < error_right) ? crosswind_left : crosswind_right;
+        }
+            
+        case Phase::FINAL:
+            // Fly into the wind (opposite direction wind is blowing)
+            return wind_from;
+            
+        default:
+            // HELD, NEUTRAL, LOITER don't use heading control
+            return 0.0f;
+    }
 }
 
-void BLIMS::calculate_bearing()
-{
-  // convert all to radians
-  float gps_lat_rad = blims::flight::gps_lat * deg_to_rad;
-  float gps_lon_rad = blims::flight::gps_lon * deg_to_rad;
+// ============================================================================
+// LOITER CONTROL (using add_alarm_in_ms)
+// ============================================================================
 
-  float target_lat_rad = blims::LV::target_lat * deg_to_rad;
-  float target_lon_rad = blims::LV::target_lon * deg_to_rad;
-
-  float d_lon = target_lon_rad - gps_lon_rad;
-  float d_lat = target_lat_rad - gps_lat_rad;
-  float bearing = atan2f(d_lon, d_lat) * rad_to_deg; // compute angle, then convert back to degrees
-
-  if (bearing < 0.0f)
-  {
-    bearing += 360.0f;
-  } // atan2 is in range [-180,180). We want 0,360 for logic and plotting
-  blims::LV::bearing = bearing;
+/**
+ * @brief Get the duration for the current loiter step
+ * @param step The loiter step
+ * @return Duration in milliseconds
+ */
+static uint32_t get_loiter_step_duration(LoiterStep step) {
+    switch (step) {
+        case LoiterStep::TURN_RIGHT:
+        case LoiterStep::TURN_LEFT:
+            return loiter_turn_duration_ms;
+        case LoiterStep::PAUSE_RIGHT:
+        case LoiterStep::PAUSE_LEFT:
+            return loiter_pause_duration_ms;
+        default:
+            return loiter_turn_duration_ms;
+    }
 }
 
-void BLIMS::set_motor_position(float position)
-{
-  uint slice_num = pwm_gpio_to_slice_num(blims::flight::blims_pwm_pin);
-  // Position should be between 0-1
-  // Should map between -17 to 17 turns (configured in web UI)
-
-  // Map position to PWM duty cycle (typically 1ms to 2ms pulse width)
-  uint16_t five_percent_duty_cycle = wrap_cycle_count * 0.05f;
-  // ranges between 5% and 10% duty cycle; 3276 ~= 5% duty, 6552 ~= 10% duty
-  uint16_t duty = (uint16_t)(five_percent_duty_cycle + position * five_percent_duty_cycle);
-  pwm_set_chan_level(slice_num, pwm_gpio_to_channel(blims::flight::blims_pwm_pin), duty);
-  // update state of motor (what is the position at the current time)
-  blims::flight::data_out.motor_position = position;
-  blims::flight::data_out.pid_I = blims::LV::pid_I;
-  blims::flight::data_out.pid_P = blims::LV::pid_P;
-  blims::flight::data_out.bearing = blims::LV::bearing;
+/**
+ * @brief Get the next loiter step in the sequence
+ * @param current Current loiter step
+ * @return Next loiter step
+ */
+static LoiterStep get_next_loiter_step(LoiterStep current) {
+    switch (current) {
+        case LoiterStep::TURN_RIGHT:  return LoiterStep::PAUSE_RIGHT;
+        case LoiterStep::PAUSE_RIGHT: return LoiterStep::TURN_LEFT;
+        case LoiterStep::TURN_LEFT:   return LoiterStep::PAUSE_LEFT;
+        case LoiterStep::PAUSE_LEFT:  return LoiterStep::TURN_RIGHT;
+        default:                      return LoiterStep::TURN_RIGHT;
+    }
 }
 
-void BLIMS::pwm_setup()
-{
-  gpio_set_function(blims::flight::blims_pwm_pin, GPIO_FUNC_PWM);
-  uint slice_num = pwm_gpio_to_slice_num(blims::flight::blims_pwm_pin);
-  gpio_init(blims::flight::blims_enable_pin);
-  gpio_set_dir(blims::flight::blims_enable_pin, GPIO_OUT);
-
-  float divider = 125000000.0f / (50.0f * wrap_cycle_count);
-  pwm_set_clkdiv(slice_num, divider);
-  pwm_set_wrap(slice_num, wrap_cycle_count);
-  pwm_set_enabled(slice_num, true);
+/**
+ * @brief Alarm callback for loiter state transitions
+ * @param id Alarm ID
+ * @param user_data User data (unused)
+ * @return 0 (do not reschedule - we'll schedule the next alarm manually)
+ * 
+ * This callback is triggered by add_alarm_in_ms when it's time to transition
+ * to the next loiter step. It sets a flag that is processed in the main loop,
+ * keeping the callback itself minimal and ISR-safe.
+ */
+static int64_t loiter_alarm_callback(alarm_id_t id, void *user_data) {
+    (void)id;
+    (void)user_data;
+    
+    // Set flag for main loop to process
+    // We don't do the state transition here to keep the ISR minimal
+    loiter_advance_pending = true;
+    
+    return 0;  // Don't reschedule automatically
 }
 
-void BLIMS::data_print_test()
-{
-#ifdef VERBOSE // set in FSW
-  printf("blims_start: %d\n", blims_start);
-
-  printf("\nLV Calculation Vars Print Statements\n");
-  printf("bearing: %f\n", blims::LV::bearing);
-  // printf("currTime: %d\n", blims::flight::currTime);
-  // printf("timePassed: %d\n", blims::flight::timePassed);
-  // printf("prevError: %d\n", blims::LV::prevError);
-  // printf("prevTime: %d\n", blims::flight::prevTime);
-
-  printf("\nController Print Statements\n");
-  printf("pid_P: %f\n", blims::LV::pid_P);
-  printf("pid_I: %f\n", blims::LV::pid_I);
-#endif
+/**
+ * @brief Schedule the next loiter alarm
+ * @param duration_ms Time until next state transition
+ * 
+ * Schedules an alarm that will set loiter_advance_pending when it fires.
+ */
+static void schedule_loiter_alarm(uint32_t duration_ms) {
+    loiter_alarm_id = add_alarm_in_ms(duration_ms, loiter_alarm_callback, NULL, false);
 }
 
-void BLIMS::update_state_gps_vars(BLIMSDataIn *data_in)
-{
-  blims::flight::gps_lon = data_in->lon * 1e-7f;
-  blims::flight::gps_lat = data_in->lat * 1e-7f;
-
-  // NEW (L3-1)
-  blims::flight::alt_agl_ft = data_in->alt_agl_ft;
-
-  blims::flight::hAcc = data_in->hAcc;
-  blims::flight::vAcc = data_in->vAcc;
-  blims::flight::velN = data_in->velN;
-  blims::flight::velE = data_in->velE;
-  blims::flight::velD = data_in->velD;
-  blims::flight::gSpeed = data_in->gSpeed;
-
-  float headMot_deg = data_in->headMot * 1e-5f;
-
-  blims::flight::headMot = (int32_t)wrap360(headMot_deg);
-
-  blims::flight::sAcc = data_in->sAcc;
-  blims::flight::headAcc = data_in->headAcc;
-
-  blims::flight::fixType = data_in->fixType;
-  blims::LV::gps_state = data_in->gps_state;
-
-  blims::flight::currTime = to_ms_since_boot(get_absolute_time());
+/**
+ * @brief Cancel any pending loiter alarm
+ * 
+ * Called when exiting loiter phase to prevent stale callbacks.
+ */
+static void cancel_loiter_alarm() {
+    if (loiter_alarm_id >= 0) {
+        cancel_alarm(loiter_alarm_id);
+        loiter_alarm_id = -1;
+    }
+    loiter_advance_pending = false;
 }
 
-int64_t BLIMS::execute_MVP(alarm_id_t id, void *user_data)
-{
-  gpio_put(blims::flight::blims_enable_pin, 1);
-  blims::MVP::curr_action_index++;
+/**
+ * @brief Apply motor position for current loiter step
+ * 
+ * Sets the motor position based on the current loiter sub-state.
+ * Must be called every control loop iteration while in loiter.
+ */
+static void apply_loiter_motor_position() {
+    switch (loiter_step) {
+        case LoiterStep::TURN_RIGHT:
+            set_motor_position(loiter_right_pos);
+            break;
+        case LoiterStep::TURN_LEFT:
+            set_motor_position(loiter_left_pos);
+            break;
+        case LoiterStep::PAUSE_RIGHT:
+        case LoiterStep::PAUSE_LEFT:
+            set_motor_position(neutral_pos);
+            break;
+    }
+}
 
-  if (blims::MVP::curr_action_index >= 11)
-  {
-    blims::MVP::curr_action_index = 0;
-  }
-  set_motor_position(blims::MVP::action_arr[blims::MVP::curr_action_index].position);
-  add_alarm_in_ms(blims::MVP::action_arr[blims::MVP::curr_action_index].duration, BLIMS::execute_MVP, NULL, false);
+/**
+ * @brief Execute loiter behavior - alternating turns to bleed altitude
+ * 
+ * Loiter uses alarm-based timing that alternates:
+ *   TURN_RIGHT (6s) → PAUSE_RIGHT (2.5s) → TURN_LEFT (6s) → PAUSE_LEFT (2.5s) → repeat
+ * 
+ * This creates controlled spirals/figure-8s that lose altitude without
+ * drifting far from the target. The pause periods let the parafoil
+ * stabilize before reversing direction.
+ * 
+ * IMPORTANT: This function is non-blocking. The timing is handled by
+ * add_alarm_in_ms callbacks, not by polling timestamps.
+ */
+static void execute_loiter() {
+    // Check if alarm fired and we need to advance to next step
+    if (loiter_advance_pending) {
+        loiter_advance_pending = false;
+        
+        // Advance to next step
+        loiter_step = get_next_loiter_step(loiter_step);
+        
+        // Schedule alarm for next transition
+        schedule_loiter_alarm(get_loiter_step_duration(loiter_step));
+    }
+    
+    // Apply motor position for current step (called every iteration)
+    apply_loiter_motor_position();
+}
 
-  // update statex
-  return 0; // need this for add_alarm_in_ms
+/**
+ * @brief Reset loiter state machine and start first alarm
+ * 
+ * Called when entering LOITER phase to ensure consistent behavior.
+ */
+static void reset_loiter_state() {
+    // Cancel any existing alarm
+    cancel_loiter_alarm();
+    
+    // Reset to initial state
+    loiter_step = LoiterStep::TURN_RIGHT;
+    loiter_advance_pending = false;
+    
+    // Schedule first alarm
+    schedule_loiter_alarm(get_loiter_step_duration(loiter_step));
+    
+    // Apply motor position immediately
+    apply_loiter_motor_position();
+}
 
-  //
+// ============================================================================
+// PI CONTROLLER
+// ============================================================================
+
+/**
+ * @brief Execute PI heading control
+ * @param desired_heading Target heading in degrees
+ * @param current_heading Actual heading in degrees  
+ * @param dt Time step in seconds
+ * 
+ * Uses a PI (Proportional-Integral) controller to compute motor position:
+ *   motor = neutral + Kp * error + Ki * integral(error)
+ * 
+ * The error is positive when we need to turn right, negative for left.
+ * The output is clamped to [MOTOR_MIN, MOTOR_MAX].
+ */
+static void execute_pi_control(float desired_heading, float current_heading, float dt) {
+    float error = compute_heading_error(desired_heading, current_heading);
+    
+    // Update integral with anti-windup (clamp to prevent runaway)
+    error_integral += error * dt;
+    if (error_integral > integral_max) {
+        error_integral = integral_max;
+    } else if (error_integral < -integral_max) {
+        error_integral = -integral_max;
+    }
+    
+    // Compute PI output
+    // Negative sign because positive error (need right turn) should increase motor position
+    float p_term = -Kp * error; //neg * pos. = neg term (turns)
+    float i_term = -Ki * error_integral;
+    
+    float motor_position = neutral_pos + p_term + i_term;
+    
+    // Store for telemetry
+    blims::LV::pid_P = p_term;
+    blims::LV::pid_I = i_term;
+    
+    set_motor_position(motor_position);
+}
+
+// ============================================================================
+// MAIN EXECUTION
+// ============================================================================
+
+/**
+ * @brief Main BLiMS execution function - called every control loop iteration
+ * @param data_in Pointer to GPS and sensor data from FSW
+ * @return BLIMSDataOut struct with motor position and telemetry
+ * 
+ * This function is called at ~20Hz by the flight software. It:
+ * 1. Processes GPS data
+ * 2. Determines the current flight phase
+ * 3. Computes and applies the appropriate motor command
+ * 4. Returns telemetry data for logging
+ * 
+ * IMPORTANT: This function must be non-blocking. All timing is done via
+ * timestamp comparisons, not delays.
+ */
+BLIMSDataOut BLIMS::execute(BLIMSDataIn* data_in) {
+    // Update timing
+    blims::flight::prevTime = blims::flight::currTime;
+    blims::flight::currTime = to_ms_since_boot(get_absolute_time());
+    float dt = (blims::flight::currTime - blims::flight::prevTime) / 1000.0f;
+    
+    // Process GPS data
+    blims::flight::gps_lat = data_in->lat * 1e-7f;
+    blims::flight::gps_lon = data_in->lon * 1e-7f;
+    blims::flight::gSpeed = data_in->gSpeed;
+    blims::flight::headMot = data_in->headMot;
+    blims::flight::fixType = data_in->fixType;
+    blims::LV::gps_state = data_in->gps_state;
+    
+    // Get altitude from barometer (passed in from FSW)
+    float altitude_ft = data_in->altitude_ft;
+    
+    // Check GPS validity
+    bool gps_valid = blims::LV::gps_state && (blims::flight::fixType >= 2);
+    
+    // Determine current phase
+    Phase current_phase = determine_phase(altitude_ft, gps_valid);
+    
+    // Detect phase changes and reset state as needed
+    if (current_phase != last_phase) {
+        // Reset integral on any phase change to prevent windup carryover
+        error_integral = 0.0f;
+        
+        // Cancel loiter alarm if we're leaving loiter phase
+        if (last_phase == Phase::LOITER) {
+            cancel_loiter_alarm();
+        }
+        
+        // Reset loiter state when entering loiter
+        if (current_phase == Phase::LOITER) {
+            reset_loiter_state();
+        }
+        
+        last_phase = current_phase;
+    }
+    
+    // Calculate bearing for telemetry (and for TRACK phase control)
+    float bearing_to_target = calculate_bearing_to_target();
+    blims::LV::bearing = bearing_to_target;
+    
+    // Execute phase-specific control
+    switch (current_phase) {
+        case Phase::HELD:
+        case Phase::NEUTRAL:
+            // No active control - hold neutral
+            set_motor_position(neutral_pos);
+            blims::LV::pid_P = 0.0f;
+            blims::LV::pid_I = 0.0f;
+            break;
+            
+        case Phase::LOITER:
+            // Timed alternating turns (uses add_alarm_in_ms internally)
+            execute_loiter();
+            break;
+            
+        case Phase::TRACK:
+        case Phase::DOWNWIND:
+        case Phase::BASE:
+        case Phase::FINAL: {
+            // PI heading control
+            float desired_heading = get_desired_heading(current_phase, bearing_to_target);
+            float current_heading = blims::flight::headMot * 1e-5f;
+            execute_pi_control(desired_heading, current_heading, dt);
+            break;
+        }
+    }
+    
+    // Build and return output struct
+    BLIMSDataOut data_out;
+    data_out.motor_position = blims::flight::motor_position;
+    data_out.pid_P = blims::LV::pid_P;
+    data_out.pid_I = blims::LV::pid_I;
+    data_out.bearing = blims::LV::bearing;
+    data_out.phase_id = static_cast<int8_t>(current_phase);
+    data_out.loiter_step = static_cast<int8_t>(loiter_step);
+    
+    return data_out;
+}
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+/**
+ * @brief Initialize the BLiMS system
+ * @param mode Operating mode (STANDBY, LV)
+ * @param pwm_pin GPIO pin for motor PWM signal
+ * @param enable_pin GPIO pin for motor enable signal
+ * 
+ * Sets up PWM hardware and initializes state variables.
+ * Target coordinates and wind direction should be set before flight.
+ */
+void BLIMS::begin(BLIMSMode mode, uint8_t pwm_pin, uint8_t enable_pin) {
+    blims::flight::flight_mode = mode;
+    blims::flight::blims_pwm_pin = pwm_pin;
+    blims::flight::blims_enable_pin = enable_pin;
+    
+    // Configure PWM for 50Hz (standard servo frequency)
+    gpio_set_function(pwm_pin, GPIO_FUNC_PWM);
+    uint slice = pwm_gpio_to_slice_num(pwm_pin);
+    float divider = 125000000.0f / (50 * wrap_cycle_count);
+    pwm_set_clkdiv(slice, divider);
+    pwm_set_wrap(slice, wrap_cycle_count);
+    pwm_set_enabled(slice, true);
+    
+    // Configure enable pin
+    gpio_init(enable_pin);
+    gpio_set_dir(enable_pin, GPIO_OUT);
+    gpio_put(enable_pin, 1);  // Enable motor driver
+    
+    // Initialize motor to neutral
+    set_motor_position(neutral_pos);
+    
+    // Initialize state
+    error_integral = 0.0f;
+    last_phase = Phase::HELD;
+    loiter_step = LoiterStep::TURN_RIGHT;
+    loiter_alarm_id = -1;
+    loiter_advance_pending = false;
+    
+    blims::flight::blims_init = true;
+}
+
+/**
+ * @brief Set the wind direction
+ * @param wind_from_deg Direction wind is coming FROM in degrees [0, 360)
+ *                      0 = from North, 90 = from East, etc.
+ * 
+ * This should be set before flight based on weather data.
+ * The landing pattern headings are computed relative to this.
+ */
+void BLIMS::set_wind_from_deg(float wind_from_deg) {
+    blims::LV::wind_from_deg = wrap360(wind_from_deg);
+}
+
+/**
+ * @brief Set the target landing coordinates
+ * @param lat Target latitude in degrees
+ * @param lon Target longitude in degrees
+ */
+void BLIMS::set_target(float lat, float lon) {
+    blims::LV::target_lat = lat;
+    blims::LV::target_lon = lon;
 }

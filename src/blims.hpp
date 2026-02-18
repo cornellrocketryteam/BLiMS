@@ -1,59 +1,69 @@
 /**
  * @file blims.hpp
- * @author gb486
- *
- * @brief BLiMS related definitions
- * State Machine:
- *   Phase -1: HELD     - Invalid GPS/speed, motor at neutral
- *   Phase  0: TRACK    - PI control homing to target (>1000ft, outside set radius)
- *   Phase  1: DOWNWIND - Fly with wind (1000-600ft)
- *   Phase  2: BASE     - Perpendicular to wind (600-300ft)
- *   Phase  3: FINAL    - Into wind (300-100ft)
- *   Phase  4: NEUTRAL  - Hands off for landing (<100ft)
- *   Phase  5: LOITER   - Altitude bleed via alternating turns (>1000ft, inside set radius)
+ * @brief BLiMS class definition
  */
+
 #ifndef BLIMS_HPP
 #define BLIMS_HPP
+
 #include "blims_constants.hpp"
 #include "blims_state.hpp"
 #include "hardware/pwm.h"
 #include "pico/stdlib.h"
-#include "cstdio"
+#include "pico/time.h"
+#include <cstdio>
 
 class BLIMS
 {
 public:
-  // associated with blims object because not static
-  void begin(BLIMSMode mode, uint8_t pwm_pin, uint8_t enable_pin);
-  void set_target_lat(float lat);
-  void set_target_lon(float lon);
-
-  // NEW (L3-1): uplink wind direction "FROM" in degrees (0..360)
-  void set_wind_from_deg(float wind_from_deg);
-
-  BLIMSDataOut execute(BLIMSDataIn *data_in);
-
-  static float wrap360(float deg);
-  static float wrap180(float deg);
+    /**
+     * @brief Initialize BLiMS system
+     * @param mode Operating mode (STANDBY, LV)
+     * @param pwm_pin GPIO pin for motor PWM
+     * @param enable_pin GPIO pin for motor enable
+     */
+    void begin(BLIMSMode mode, uint8_t pwm_pin, uint8_t enable_pin);
+    
+    void set_target(float lat, float lon);
+        
+    /**
+     * @brief Set wind direction (direction wind is coming FROM)
+     * @param deg Wind direction in degrees [0, 360)
+     */
+    void set_wind_from_deg(float deg);
+    
+    /**
+     * @brief Main execution function - call every control loop
+     * @param data_in Pointer to input data from FSW
+     * @return Output data for logging
+     */
+    BLIMSDataOut execute(BLIMSDataIn *data_in);
 
 private:
-  // configures the pwm signal
-  void pwm_setup();
-  // print test
-  void data_print_test();
-  // update state vars with FSW data
-  void update_state_gps_vars(BLIMSDataIn *data_in);
-  // sets position of motor on a 0-1 scale
-  static void set_motor_position(float position);
-  static int64_t execute_MVP(alarm_id_t id, void *user_data);
-  void execute_LV();
-  int32_t calculate_pid_I();
-  void calculate_bearing();
-  int32_t calculate_angError();
-  int32_t calculate_timePassed();
-  static int64_t init_timer(alarm_id_t id, void *user_data);
+    void pwm_setup();
+    void data_print_test();
+    void update_state_vars(BLIMSDataIn *data_in);
+    
+    static void set_motor_position(float position);
+    
+    // LV mode
+    void execute_LV();
+    void calculate_bearing();
 
-  static int64_t pwm_setup_timer(alarm_id_t id, void *user_data);
+    int32_t calculate_pid_I();
+    int32_t calculate_angError();
+    int32_t calculate_timePassed();
+    static int64_t pwm_setup_timer(alarm_id_t id, void *user_data);
+    
+    // Loiter
+    static int64_t loiter_alarm_callback(alarm_id_t id, void *user_data);
+    void execute_loiter();
+    void reset_loiter_state();
+    
+    // Init timer
+    static int64_t init_timer(alarm_id_t id, void *user_data);
+
+
 };
 
-#endif
+#endif // BLIMS_HPP

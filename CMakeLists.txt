@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 4.2)
+
 add_library(BLiMS INTERFACE)
 
 target_sources(BLiMS INTERFACE
