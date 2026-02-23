@@ -12,8 +12,8 @@
 #include <iostream>
 #include <iomanip>
 
-#define PWM_PIN 28
-#define ODRIVE_STATE_PIN 0 // enable pin. Check all these pins with the wiring diagram as this test script might not match what the LV is wired for
+#define PWM_PIN 27
+#define ODRIVE_STATE_PIN 28 // enable pin. Check all these pins with the wiring diagram as this test script might not match what the LV is wired for
 #define I2C_PORT i2c0
 #define I2C_SDA 12 // gps pins
 #define I2C_SCL 13

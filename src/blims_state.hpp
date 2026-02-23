@@ -105,7 +105,12 @@ namespace blims
     extern float error_integral;
     // NEW (L3-1): wind direction "FROM" (deg 0-360), uploaded preflight
     extern float wind_from_deg;
+    constexpr int MAX_WIND_LAYERS = 20;
+    extern int wind_profile_size;
+    extern float wind_altitudes_m[MAX_WIND_LAYERS];
+    extern float wind_dirs_deg[MAX_WIND_LAYERS];
   };
+
 }
 
 #endif

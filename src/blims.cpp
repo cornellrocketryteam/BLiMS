@@ -215,6 +215,35 @@ static float compute_heading_error(float desired_heading, float actual_heading) 
     return wrap180(desired_heading - actual_heading);
 }
 
+/**
+ * @brief Interpolate wind direction at given altitude
+ */
+static float get_wind_at_altitude(float altitude_m) {
+    if (blims::LV::wind_profile_size == 0) {
+        return blims::LV::wind_from_deg;  // Fallback to single value
+    }
+    
+    // Clamp to profile range
+    if (altitude_m <= blims::LV::wind_altitudes_m[0]) {
+        return blims::LV::wind_dirs_deg[0];
+    }
+    if (altitude_m >= blims::LV::wind_altitudes_m[blims::LV::wind_profile_size - 1]) {
+        return blims::LV::wind_dirs_deg[blims::LV::wind_profile_size - 1];
+    }
+    
+    // Linear interpolation
+    for (int i = 0; i < blims::LV::wind_profile_size - 1; i++) {
+        if (altitude_m >= blims::LV::wind_altitudes_m[i] && 
+            altitude_m < blims::LV::wind_altitudes_m[i + 1]) {
+            float t = (altitude_m - blims::LV::wind_altitudes_m[i]) / 
+                      (blims::LV::wind_altitudes_m[i + 1] - blims::LV::wind_altitudes_m[i]);
+            return blims::LV::wind_dirs_deg[i] + t * (blims::LV::wind_dirs_deg[i + 1] - blims::LV::wind_dirs_deg[i]);
+        }
+    }
+    
+    return blims::LV::wind_dirs_deg[0];
+}
+
 // ============================================================================
 // MOTOR CONTROL
 // ============================================================================
@@ -305,9 +334,11 @@ static Phase determine_phase(float altitude_ft, bool gps_valid) {
  * @param bearing_to_target Bearing from current position to target
  * @return Desired heading in degrees [0, 360)
  */
-static float get_desired_heading(Phase phase, float bearing_to_target) {
-    float wind_from = blims::LV::wind_from_deg;
+static float get_desired_heading(Phase phase, float bearing_to_target,  float altitude_ft) {
+    float wind_from = get_wind_at_altitude(altitude_m);
     float wind_to = wrap360(wind_from + 180.0f);  // Direction wind is blowing TO
+
+    float altitude_m = altitude_ft / 3.28084f;
     
     switch (phase) {
         case Phase::TRACK:
@@ -338,6 +369,17 @@ static float get_desired_heading(Phase phase, float bearing_to_target) {
         default:
             // HELD, NEUTRAL, LOITER don't use heading control
             return 0.0f;
+    }
+}
+
+void BLIMS::set_wind_profile(const float* altitudes_m, const float* directions_deg, int size) {
+    if (size > blims::LV::MAX_WIND_LAYERS) {
+        size = blims::LV::MAX_WIND_LAYERS;
+    }
+    blims::LV::wind_profile_size = size;
+    for (int i = 0; i < size; i++) {
+        blims::LV::wind_altitudes_m[i] = altitudes_m[i];
+        blims::LV::wind_dirs_deg[i] = directions_deg[i];
     }
 }
 

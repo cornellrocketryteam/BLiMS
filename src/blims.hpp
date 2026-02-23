@@ -31,6 +31,14 @@ public:
      * @param deg Wind direction in degrees [0, 360)
      */
     void set_wind_from_deg(float deg);
+
+    /**
+     * @brief Set wind profile from FSW (loaded via umbilical)
+     * @param altitudes_m Array of altitudes in meters
+     * @param directions_deg Array of wind directions (FROM) in degrees
+     * @param size Number of layers
+     */
+    void set_wind_profile(const float* altitudes_m, const float* directions_deg, int size);
     
     /**
      * @brief Main execution function - call every control loop

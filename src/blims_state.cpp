@@ -54,5 +54,9 @@ namespace blims
         float pid_I = 0;
         bool gps_state = false;
         float error_integral = 0;
+
+        int wind_profile_size = 0;
+        float wind_altitudes_m[MAX_WIND_LAYERS] = {0};
+        float wind_dirs_deg[MAX_WIND_LAYERS] = {0};
     }
 }

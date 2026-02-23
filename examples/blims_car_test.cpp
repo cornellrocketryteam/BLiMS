@@ -20,8 +20,8 @@
  * WIRING:
  * - GPS SDA  -> GPIO 12
  * - GPS SCL  -> GPIO 13
- * - PWM      -> GPIO 28
- * - Enable   -> GPIO 0
+ * - PWM      -> GPIO 27
+ * - Enable   -> GPIO 28
  * - BTN_UP   -> GPIO 14 (optional, for manual altitude)
  * - BTN_DOWN -> GPIO 15 (optional, for manual altitude)
  * 
@@ -46,14 +46,14 @@
 // PIN DEFINITIONS
 // ============================================================================
 
-#define PWM_PIN 28
-#define ODRIVE_STATE_PIN 0
+#define PWM_PIN 27
+#define ODRIVE_STATE_PIN 28
 #define I2C_PORT i2c0
 #define I2C_SDA 12
 #define I2C_SCL 13
 
-// Optional buttons for manual altitude control
-#define BTN_UP 14      // Press to increase altitude
+// Optional buttons for manual altitude control - NOT USED for now***
+#define BTN_UP 14      // Press to increase altitude - 
 #define BTN_DOWN 15    // Press to decrease altitude
 #define USE_BUTTONS 1  // Set to 0 if no buttons connected
 
@@ -556,7 +556,7 @@ int main() {
            TEST_MODE == MANUAL_ALTITUDE ? "MANUAL_ALTITUDE" :
            TEST_MODE == AUTO_DESCENT ? "AUTO_DESCENT" : "FIXED_PHASE");
     printf("# Target: %.6f, %.6f\n", TARGET_LAT, TARGET_LON);
-    printf("# Wind from: %.0f deg\n", WIND_FROM_DEG);
+    printf("# Wind profile: %d layers loaded\n", WIND_PROFILE_SIZE);
     printf("# Start altitude: %.0f ft\n", START_ALTITUDE_FT);
     printf("# ==========================================\n");
     printf("# CSV: lat,lon,target_lat,target_lon,heading,bearing,motor,timestamp,P,I,phase,altitude,loiter_step\n");
