@@ -12,6 +12,24 @@ public:
     float get_alt();
     bool has_more_data() const;
     void reset();
+
+    float target_lat = 42.4466f;
+    float target_lon = -76.4613f;
+    float current_lat = 42.4460f;  // Start ~600m from target
+    float current_lon = -76.4613f;
+
+    float get_distance_to_target_ft() {
+        float d_lat = target_lat - current_lat;
+        float d_lon = target_lon - current_lon;
+        float d_m = sqrtf(d_lat*d_lat + d_lon*d_lon) * 111320.0f;
+        return d_m * 3.28084f;
+    }
+
+    // Simulate drifting toward target during descent
+    void update_position(float dt) {
+        current_lat += (target_lat - current_lat) * 0.001f;
+        current_lon += (target_lon - current_lon) * 0.001f;
+    }
     
     // State tracking
     struct State {

@@ -88,13 +88,30 @@ int main()
 {
     stdio_init_all();
     sleep_ms(2000);
+    printf("# DBG: stdio init done\n");
+
     setup_pwm_50hz(PWM_PIN);
+    printf("# DBG: PWM setup done\n");
 
     i2c_init(I2C_PORT, 400 * 1000);
     gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
     gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
     gpio_pull_up(I2C_SDA);
     gpio_pull_up(I2C_SCL);
+    printf("# DBG: I2C0 init done SDA=%d SCL=%d\n", I2C_SDA, I2C_SCL);
+
+    // ---- DEBUG: I2C bus scan ----
+    printf("# DBG: I2C scan start\n");
+    for (uint8_t addr = 0x08; addr < 0x78; addr++) {
+        uint8_t dummy;
+        int ret = i2c_read_blocking(I2C_PORT, addr, &dummy, 1, false);
+        if (ret >= 0) {
+            printf("# DBG:   found 0x%02X%s%s\n", addr,
+                   addr == 0x42 ? " (GPS)" : "",
+                   addr == 0x77 ? " (BMP390)" : "");
+        }
+    }
+    printf("# DBG: I2C scan done\n");
 
     while (!tud_cdc_connected())
     { // this test script only starts pulling gps values and sending motor commands after the serial port has been opened
@@ -102,23 +119,34 @@ int main()
     }
     printf("Connected\n");
 
+    printf("# DBG: calling begin_PVT(20)\n");
     if (!gps.begin_PVT(20))
     {
         printf("Failed to init GPS\n");
+        printf("# DBG: begin_PVT returned false\n");
         return 1;
     }
+    printf("# DBG: begin_PVT returned true\n");
 
     UbxNavPvt data = {0};
 
     gpio_put(ODRIVE_STATE_PIN, 1); // pull enable pin high to clear errors and put motor in the right state
+    printf("# DBG: enable pin HIGH\n");
 
     float error_integral = 0.0f;                     // initialize accumulated error as zero
     absolute_time_t last_time = get_absolute_time(); // initialize variable that keeps track of timing for integral calculation
+    int loop_n = 0;
 
     while (true)
     {
+        loop_n++;
+        if (loop_n <= 5 || loop_n % 20 == 0)
+            printf("# DBG: loop %d calling read_PVT_data\n", loop_n);
+
         if (gps.read_PVT_data(&data))
         { // if gps status from FSW good then run
+            printf("# DBG: read_PVT returned true\n");
+
             float current_lat = data.lat * 1e-7f;
             float current_lon = data.lon * 1e-7f;
             float heading = ((data.headMot * 1e-5f) - 90) * -1; // IMPORTANT: Transform to polar coords by shifting 90 degrees and flipping
@@ -127,8 +155,12 @@ int main()
 
             float ground_speed = data.gSpeed / 1000.0f; // ground speed isn't actually used for anything rn
 
+            printf("# DBG: fix=%d lat=%.7f lon=%.7f spd=%.2f hdg=%.1f\n",
+                   data.fixType, current_lat, current_lon, ground_speed, heading);
+
             if (data.fixType >= 3 && ground_speed > 0.3)
             { // only run the logic if we have satellite lock and are moving fast enough to have a clear direction. More relevant to car testing than actual flight but do make sure that the code doesn't break if the expected data isn't returned for a loop or two
+                printf("# DBG: running PI control\n");
                 absolute_time_t now = get_absolute_time();
                 float dt_ms = to_ms_since_boot(now) - to_ms_since_boot(last_time); // calculate how long since last loop (delta time)
                 last_time = now;                                                   // reset last time for the next loop
@@ -175,6 +207,11 @@ int main()
                 printf("Waiting for valid fix or movement (Fix: %d, Speed: %.2f)\n", data.fixType, ground_speed);
                 set_motor_position(PWM_PIN, 0.5f); // set to neutral if no data
             }
+        }
+        else
+        {
+            if (loop_n <= 5 || loop_n % 20 == 0)
+                printf("# DBG: read_PVT returned FALSE (loop %d)\n", loop_n);
         }
         sleep_ms(100); // loop runs at 10Hz
     }

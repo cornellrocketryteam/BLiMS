@@ -1,0 +1,40 @@
+=== BLiMS Landing Logic Simulator ===
+Using real altitude data from flight log
+Simulating phase transitions and control logic
+
+Running simulation...
+PHASE CHANGE: HELD -> NEUTRAL at altitude 0.0 ft (sample 0)
+  Sample     0: Alt=0.0 ft | Phase=NEUTRAL | Motor=0.500 | Dist=220.1 ft | ASC
+  Sample   500: Alt=0.0 ft | Phase=NEUTRAL | Motor=0.500 | Dist=220.1 ft | ASC
+  Sample  1000: Alt=0.0 ft | Phase=NEUTRAL | Motor=0.500 | Dist=220.1 ft | ASC
+PHASE CHANGE: NEUTRAL -> HELD at altitude 54.7 ft (sample 1241)
+  Sample  1500: Alt=1585.7 ft | Phase=HELD | Motor=0.500 | Dist=220.1 ft | ASC
+  ** APOGEE DETECTED at 1611.2 ft (max was 1662.9 ft) **
+PHASE CHANGE: HELD -> LOITER at altitude 1611.2 ft (sample 1654)
+  Sample  2000: Alt=1190.5 ft | Phase=LOITER | Motor=0.650 | Dist=220.1 ft | DESC
+PHASE CHANGE: LOITER -> DOWNWIND at altitude 998.8 ft (sample 2164)
+PHASE CHANGE: DOWNWIND -> BASE at altitude 599.1 ft (sample 2481)
+  Sample  2500: Alt=569.5 ft | Phase=BASE | Motor=0.300 | Dist=220.1 ft | DESC
+  Sample  3000: Alt=447.1 ft | Phase=BASE | Motor=0.302 | Dist=220.1 ft | DESC
+  Sample  3500: Alt=318.2 ft | Phase=BASE | Motor=0.310 | Dist=220.1 ft | DESC
+PHASE CHANGE: BASE -> FINAL at altitude 299.9 ft (sample 3574)
+  Sample  4000: Alt=172.2 ft | Phase=FINAL | Motor=0.313 | Dist=220.1 ft | DESC
+PHASE CHANGE: FINAL -> NEUTRAL at altitude 99.9 ft (sample 4334)
+  Sample  4500: Alt=51.2 ft | Phase=NEUTRAL | Motor=0.500 | Dist=220.1 ft | DESC
+  Sample  5000: Alt=18.4 ft | Phase=NEUTRAL | Motor=0.500 | Dist=220.1 ft | DESC
+  Sample  5500: Alt=17.9 ft | Phase=NEUTRAL | Motor=0.500 | Dist=220.1 ft | DESC
+
+Simulation complete!
+Output written to: sim_output.csv
+Total samples processed: 5537
+Simulation duration: 276.9 seconds
+
+
+=== SIMULATION SUMMARY ===
+Total altitude samples: 5537 / 5538
+Data usage: 100.0%
+Final phase: NEUTRAL
+Final altitude: 17.7 ft
+Final motor position: 0.500
+========================
+

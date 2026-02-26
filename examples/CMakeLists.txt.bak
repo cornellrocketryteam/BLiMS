@@ -1,0 +1,63 @@
+cmake_minimum_required(VERSION 3.27)
+
+# Pull in SDK (must be before project)
+include(../lib/pico-sdk/pico_sdk_init.cmake)
+
+project(blims_example C CXX ASM)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+
+# Initialize the SDK
+pico_sdk_init()
+
+add_compile_options(
+    -Wall
+    -Wno-format
+    -Wno-unused-function
+)
+
+# ==========================================================
+# Shared BLiMS sources
+# ==========================================================
+set(BLIMS_SOURCES
+    ../src/blims.cpp
+    ../src/blims_state.cpp
+)
+
+# ==========================================================
+# simple_motor_test (TEST 1)
+# ==========================================================
+add_executable(simple_motor_test
+    simple_motor_test.cpp
+    ${BLIMS_SOURCES}
+)
+
+target_link_libraries(simple_motor_test
+    pico_stdlib
+    hardware_pwm
+    hardware_gpio
+    hardware_timer
+)
+
+pico_enable_stdio_usb(simple_motor_test 1)
+pico_enable_stdio_uart(simple_motor_test 0)
+pico_add_uf2_output(simple_motor_test)
+
+# ==========================================================
+# simple_motor_test_2 (TEST 2)
+# ==========================================================
+add_executable(simple_motor_test_2
+    simple_motor_test_2.cpp
+    ${BLIMS_SOURCES}
+)
+
+target_link_libraries(simple_motor_test_2
+    pico_stdlib
+    hardware_pwm
+    hardware_gpio
+    hardware_timer
+)
+
+pico_enable_stdio_usb(simple_motor_test_2 1)
+pico_enable_stdio_uart(simple_motor_test_2 0)
+pico_add_uf2_output(simple_motor_test_2)
