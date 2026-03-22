@@ -508,6 +508,8 @@ void BLIMS::execute_pi_control(float desired_heading, float current_heading, flo
     // Negative sign because positive error (need right turn) should increase motor position
     float p_term = -Kp * error; //neg * pos. = neg term (turns)
     float i_term = -Ki * error_integral;
+
+    //its actually the case that left turn needs right turn - opposite way 
     
     float motor_position = neutral_pos + p_term + i_term;
     

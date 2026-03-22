@@ -21,3 +21,17 @@ target_link_libraries(controller_test pico_stdlib hardware_gpio hardware_i2c har
 pico_enable_stdio_usb(controller_test 1)
 pico_enable_stdio_uart(controller_test 0)
 pico_add_uf2_output(controller_test)
+
+# simple_motor_test
+add_executable(simple_motor_test simple_motor_test.cpp)
+target_link_libraries(simple_motor_test pico_stdlib hardware_gpio hardware_pwm)
+pico_enable_stdio_usb(simple_motor_test 1)
+pico_enable_stdio_uart(simple_motor_test 0)
+pico_add_uf2_output(simple_motor_test)
+
+# simple_motor_test_2
+add_executable(simple_motor_test_2 simple_motor_test_2.cpp)
+target_link_libraries(simple_motor_test_2 pico_stdlib hardware_gpio hardware_pwm)
+pico_enable_stdio_usb(simple_motor_test_2 1)
+pico_enable_stdio_uart(simple_motor_test_2 0)
+pico_add_uf2_output(simple_motor_test_2)

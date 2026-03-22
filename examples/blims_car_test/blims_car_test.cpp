@@ -120,6 +120,7 @@ int main()
     // ---- BLIMS begin (mirrors FSW StartupMode::execute) ----
     // New API: begin() enables motor immediately, no 10s delay
     blims_obj.begin(LV, PWM_PIN, ENABLE_PIN);
+    sleep_ms(5000);
     blims_obj.set_target((float)TARGET_LAT, (float)TARGET_LON);
 
     // Load wind profile (new API)
@@ -183,6 +184,11 @@ int main()
     //   mode->transition()
     //   sleep(cycle_time - elapsed)
     // ================================================================
+    gpio_put(ENABLE_PIN, 1);
+    printf("enable\n");
+    sleep_ms(500);
+    gpio_put(ENABLE_PIN, 0);
+    printf("pulse low\n");
     while (true)
     {
         uint32_t cycle_start = to_ms_since_boot(get_absolute_time());

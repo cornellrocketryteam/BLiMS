@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/willchen/Rocketry/BLiMS/examples/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
