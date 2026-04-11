@@ -103,7 +103,8 @@ void pwm_set_clkdiv(uint slice, float div) { (void)slice; (void)div; }
 void pwm_set_wrap(uint slice, uint16_t wrap) { (void)slice; (void)wrap; }
 void pwm_set_enabled(uint slice, bool en) { (void)slice; (void)en; }
 void gpio_set_function(uint gpio, uint fn) { (void)gpio; (void)fn; }
-void gpio_init(uint gpio) { (void)gpio; }
+void 
+gpio_init(uint gpio) { (void)gpio; }
 void gpio_set_dir(uint gpio, bool out) { (void)gpio; (void)out; }
 void gpio_put(uint gpio, bool val) { (void)gpio; (void)val; }
 

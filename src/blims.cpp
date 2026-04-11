@@ -506,8 +506,8 @@ void BLIMS::execute_pi_control(float desired_heading, float current_heading, flo
     
     // Compute PI output
     // Negative sign because positive error (need right turn) should increase motor position
-    float p_term = -Kp * error; //neg * pos. = neg term (turns)
-    float i_term = -Ki * error_integral;
+    float p_term = Kp * error; //neg * pos. = neg term (turns)
+    float i_term = Ki * error_integral;
 
     //its actually the case that left turn needs right turn - opposite way 
     
@@ -543,6 +543,7 @@ BLIMSDataOut BLIMS::execute(BLIMSDataIn* data_in) {
     blims::flight::prevTime = blims::flight::currTime;
     blims::flight::currTime = to_ms_since_boot(get_absolute_time());
     float dt = (blims::flight::currTime - blims::flight::prevTime) / 1000.0f;
+    if (dt > 0.2f || blims::flight::prevTime == 0) dt = 0.05f;
     
     // Process GPS data
     blims::flight::gps_lat = data_in->lat * 1e-7f;

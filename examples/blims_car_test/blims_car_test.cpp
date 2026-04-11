@@ -64,9 +64,6 @@
 static const double TARGET_LAT = 42.446610;
 static const double TARGET_LON = -76.461304;
 
-// Minimum ground speed (m/s) for GPS heading to be trustworthy
-static const float MIN_GROUND_SPEED_MPS = 0.3f;
-
 // Cycle time - matches FSW constants::cycle_time (50ms = 20Hz)
 static const uint32_t CYCLE_TIME_MS = 50;
 
@@ -184,23 +181,24 @@ int main()
     //   mode->transition()
     //   sleep(cycle_time - elapsed)
     // ================================================================
-    gpio_put(ENABLE_PIN, 1);
-    printf("enable\n");
-    sleep_ms(500);
-    gpio_put(ENABLE_PIN, 0);
-    printf("pulse low\n");
     while (true)
     {
+
         uint32_t cycle_start = to_ms_since_boot(get_absolute_time());
+
+        // ==========================================================
+        // 0. ENABLE PIN PULSE
+        // ==========================================================
+        gpio_put(ENABLE_PIN, 1);
+        sleep_ms(10);
+        gpio_put(ENABLE_PIN, 0);
 
         // ==========================================================
         // 1. SENSOR READ
         // ==========================================================
         gps.read_PVT_data(&pvt);
 
-        float ground_speed_mps = pvt.gSpeed / 1000.0f;
-        bool gps_valid = (pvt.fixType >= 2) &&
-                         (ground_speed_mps > MIN_GROUND_SPEED_MPS);
+        bool gps_valid = (pvt.fixType >= 2);  
 
         // ==========================================================
         // 2. ALTITUDE SIMULATION
@@ -284,8 +282,7 @@ int main()
         }
         else
         {
-            printf("# No fix (type=%d speed=%.2f m/s)\n",
-                   pvt.fixType, ground_speed_mps);
+            printf("# No fix (type=%d)\n", pvt.fixType);
         }
 
         // ==========================================================

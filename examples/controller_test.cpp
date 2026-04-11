@@ -12,8 +12,8 @@
 #include <iostream>
 #include <iomanip>
 
-#define PWM_PIN 27
-#define ODRIVE_STATE_PIN 28 // enable pin. Check all these pins with the wiring diagram as this test script might not match what the LV is wired for
+#define PWM_PIN 28
+#define ODRIVE_STATE_PIN 0 // enable pin. Check all these pins with the wiring diagram as this test script might not match what the LV is wired for
 #define I2C_PORT i2c0
 #define I2C_SDA 12 // gps pins
 #define I2C_SCL 13
@@ -132,6 +132,7 @@ int main()
 
     gpio_put(ODRIVE_STATE_PIN, 1); // pull enable pin high to clear errors and put motor in the right state
     printf("# DBG: enable pin HIGH\n");
+    
 
     float error_integral = 0.0f;                     // initialize accumulated error as zero
     absolute_time_t last_time = get_absolute_time(); // initialize variable that keeps track of timing for integral calculation
@@ -154,9 +155,8 @@ int main()
                 heading += 360.0f; // then wrap to 0,360. This variable is technically heading of motion, couldve been more precise with my naming
 
             float ground_speed = data.gSpeed / 1000.0f; // ground speed isn't actually used for anything rn
-
-            printf("# DBG: fix=%d lat=%.7f lon=%.7f spd=%.2f hdg=%.1f\n",
-                   data.fixType, current_lat, current_lon, ground_speed, heading);
+            //printf("# DBG: fix=%d lat=%.7f lon=%.7f spd=%.2f hdg=%.1f\n",
+                   //data.fixType, current_lat, current_lon, ground_speed, heading);
 
             if (data.fixType >= 3 && ground_speed > 0.3)
             { // only run the logic if we have satellite lock and are moving fast enough to have a clear direction. More relevant to car testing than actual flight but do make sure that the code doesn't break if the expected data isn't returned for a loop or two
@@ -195,9 +195,12 @@ int main()
 
                 // Log everything. Print statements for the visualizer, but in FSW should be logged to SD card if possible
                 printf("%.7f,%.7f,%.7f,%.7f,%.2f,%.2f,%.3f,%llu,%.3f,%.3f\n",
-                       current_lat, current_lon,
-                       target_lat, target_lon,
-                       heading, target_heading,
+                       current_lat, 
+                       current_lon,
+                       target_lat, 
+                       target_lon,
+                       heading, 
+                       target_heading,
                        position, // motor position
                        to_ms_since_boot(now),
                        P_term, I_term);
