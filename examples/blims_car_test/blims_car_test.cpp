@@ -105,7 +105,15 @@ static const char* PHASE_NAMES[] = {
 int main()
 {
     stdio_init_all();
-    sleep_ms(2000);
+
+    while (!tud_cdc_connected())
+    {
+        sleep_ms(100);
+    }
+    sleep_ms(500);
+
+    printf("# BLiMS Car Test - CDC connected\n");
+
 
     // ---- I2C for GPS ----
     i2c_init(I2C_PORT, 400 * 1000);
@@ -117,7 +125,8 @@ int main()
     // ---- BLIMS begin (mirrors FSW StartupMode::execute) ----
     // New API: begin() enables motor immediately, no 10s delay
     blims_obj.begin(LV, PWM_PIN, ENABLE_PIN);
-    sleep_ms(5000);
+    gpio_put(ENABLE_PIN, 1);
+    sleep_ms(5000); //5 second delay, GPS fix 
     blims_obj.set_target((float)TARGET_LAT, (float)TARGET_LON);
 
     // Load wind profile (new API)
@@ -125,11 +134,6 @@ int main()
     blims_obj.set_wind_from_deg(WIND_FROM_DEG);
     blims_obj.set_wind_profile(WIND_ALTITUDES_M, WIND_DIRS_DEG, WIND_PROFILE_SIZE);
 
-    // ---- Wait for serial ----
-    while (!tud_cdc_connected())
-    {
-        sleep_ms(500);
-    }
 
     // ---- Banner ----
     printf("# ================================================\n");
@@ -152,8 +156,8 @@ int main()
     // ---- Init GPS at 20 Hz ----
     if (!gps.begin_PVT(20))
     {
-        printf("# ERROR: GPS init failed\n");
-        return 1;
+        printf("# ERROR: GPS init failed - check I2C SDA=GP%d SCL=GP%d\n", I2C_SDA, I2C_SCL);
+        while(true) sleep_ms(1000);;
     }
     printf("# GPS initialized at 20 Hz\n");
     // ---- I2C bus scan (debug) ----
@@ -181,18 +185,13 @@ int main()
     //   mode->transition()
     //   sleep(cycle_time - elapsed)
     // ================================================================
+ 
+    //ODrive arming delay
+    sleep_ms(500);
+
     while (true)
     {
-
         uint32_t cycle_start = to_ms_since_boot(get_absolute_time());
-
-        // ==========================================================
-        // 0. ENABLE PIN PULSE
-        // ==========================================================
-        gpio_put(ENABLE_PIN, 1);
-        sleep_ms(10);
-        gpio_put(ENABLE_PIN, 0);
-
         // ==========================================================
         // 1. SENSOR READ
         // ==========================================================
@@ -222,7 +221,7 @@ int main()
         data_in.lon         = pvt.lon;
         data_in.lat         = pvt.lat;
         data_in.altitude_ft = current_alt_ft;
-        data_in.hAcc        = pvt.hAcc;
+        data_in.hAcc        = pvt.hAcc; //taken from pico SDK - 
         data_in.vAcc        = pvt.vAcc;
         data_in.velN        = pvt.velN;
         data_in.velE        = pvt.velE;

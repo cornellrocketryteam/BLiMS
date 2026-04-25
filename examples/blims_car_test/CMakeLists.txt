@@ -21,9 +21,13 @@
 #   mkdir build && cd build
 #   cmake ..
 #   make
-#   # Flash blims_car_test.uf2 to Pico
+#   # Flash blims_car_test.uf2 to Pico 2 W
 
 cmake_minimum_required(VERSION 3.22)
+
+# ---- Target board: Pico 2 W (RP2350 + CYW43) ----
+# Must be set BEFORE including pico_sdk_init.cmake
+set(PICO_BOARD pico2_w)
 
 # Pull in Pico SDK (must be before project())
 include(../../lib/pico-sdk/pico_sdk_init.cmake)
@@ -65,6 +69,7 @@ target_link_libraries(${PROJECT_NAME}
     hardware_pwm
     hardware_timer
     ublox-MX-Pico
+    pico_cyw43_arch_none   # Required for Pico 2 W (CYW43 chip, no WiFi stack)
 )
 
 # ---- Serial over USB (for visualizer) ----

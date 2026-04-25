@@ -384,9 +384,9 @@ static float compute_pi_output(float error, float dt, float& error_integral) {
     error_integral += error * dt;
     if (error_integral > integral_max) error_integral = integral_max;
     if (error_integral < -integral_max) error_integral = -integral_max;
-    
-    float p_term = -Kp * error;
-    float i_term = -Ki * error_integral;
+    //took out -1 coefficient due to error within car test behavior
+    float p_term = Kp * error;
+    float i_term = Ki * error_integral;
     
     return neutral_pos + p_term + i_term;
 }

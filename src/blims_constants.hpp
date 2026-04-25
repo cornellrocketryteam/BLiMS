@@ -29,7 +29,7 @@ constexpr float motor_max = 0.7f; //max right
 
 //////////LV Specific Constants//////////
 constexpr float alpha = 0.1f;       // low pass filter value. Higher values increase resistance to noise but slow down the responsiveness of the data to fast changing values - unused in current implementation
-constexpr float integral_max = 10.0f; // clamp value for integral term to prevent too much integral windup
+constexpr float integral_max = 500.0f; // clamp value for integral term to prevent too much integral windup
 //revalidate via car testing**
 constexpr float Kp = 0.009f;       // for controller
 constexpr float Ki = 0.001f;       // for controller - revalidate 

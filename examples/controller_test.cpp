@@ -178,9 +178,9 @@ int main()
                 if (error_integral < -limit)
                     error_integral = -limit;
 
-                // calculate control terms
-                float P_term = -1 * Kp * error;
-                float I_term = -1 * Ki * error_integral;
+                // calculate control terms - took out -1 coefficient
+                float P_term =  Kp * error;
+                float I_term =  Ki * error_integral;
 
                 float correction = P_term + I_term;
 
